@@ -21,7 +21,7 @@ If using haplotagging, TELLseq, or stLFR data that isn't in standard format, use
 !!!
 
 >>> `index`
-index the reference FASTA to be used for alignment (just a wrapper for `minibwa index`)
+Index the reference FASTA to be used for alignment (just a wrapper for `minibwa index`)
 ```bash
 arachne index ref.fa
 ```
@@ -76,13 +76,13 @@ arachne index galapagos_tortoise.fasta
 ## align
 Once your input FASTQ files are in barcode-sorted standard format and the reference fasta is indexed,
 you are ready to align your sample onto the reference. Reads are aligned with [minibwa](https://github.com/lh3/minibwa) (short-read, paired-end mode with mate rescue),
-and the command writes to `stdout`:
+and the command writes uncompressed BAM to `stdout`:
 ```bash usage
-arachne align [options] -s <sampleID> ref.fa r1.fq r2.fq
+arachne align [options] -s <sampleID> ref.fa file.arachne.r1.fq file.arachne.r2.fq > out.bam
 ```
 
 ```bash example
-arachne align -t 24 -s MC_001 Rclamitans.fa MC_001.F.fq.gz MC_001.R.fq.gz > MC_001.arachne.sam
+arachne align -t 24 -s MC_001 Rclamitans.fa MC_001.arachne.R1.fq.gz MC_001.arachne.R1.fq.gz > MC_001.arachne.bam
 ```
 
 The command line options are:
@@ -178,6 +178,11 @@ same contig, with the reverse read starting between −35 and +750 bp from the f
 an improperly paired placement is treated as 10,000 times less likely than a properly paired one, other things equal. 
 
 **EM**: The same, but the math uses natural logs, so that becomes 4 × ln 10 ≈ 10,000. The sign is ignored, so you always get a penalty.
+
+#### --verbose
+In the event something goes wrong and you need diagnostic information, use `--verbose`, which will print some information to `stderr` over
+the course of a run. This information includes: the barcode governing the read cluster, the number of reads in that cluster, and whether RFA/EM
+are activated. 
 
 ### marking duplicates
 Since linked-read barcodes are technically a kind of UMI, Arachne automatically performs duplicate
