@@ -65,12 +65,12 @@ func DoRFAForOneBarcode(work *WorkUnit,
 	//	positions := tagBestAlignments(alignments, -17)
 	positions := tagBestAlignments(alignments)
 
-	if len(barcode_reads) > 2 && *verbose {
-		fmt.Fprintf(os.Stderr, "working on barcode %s  num reads: %d  doing RFA: %v  unique_barcode %v\n",
+	if *verbose {
+		fmt.Fprintf(os.Stderr, "barcode: %s | number of reads: %d | doing RFA: %v\n",
 			string(barcode_reads[0].Barcode),
 			len(barcode_reads),
 			worthRFA,
-			work.unique_barcode)
+		)
 	}
 
 	if !worthRFA {

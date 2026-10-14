@@ -121,9 +121,11 @@ func writeFastq(t *testing.T, path string, records [][2]string) {
 	t.Helper()
 	var buf bytes.Buffer
 	for _, r := range records {
-		buf.WriteString("@" + r[0] + "\n")
-		buf.WriteString("ACGTACGTAC\n")
-		buf.WriteString("+\n")
+		buf.WriteByte('@')
+		buf.WriteString(r[0])
+		buf.WriteByte('\n')
+		buf.WriteString("ACGTACGTAC\n+")
+		buf.WriteByte('\n')
 		buf.WriteString("IIIIIIIIII\n")
 		_ = r[1]
 	}
@@ -192,5 +194,27 @@ func TestReadBarcodeSetGroupsByBarcode(t *testing.T) {
 	_, err, _ = fqr.ReadBarcodeSet(nil)
 	if err != io.EOF {
 		t.Fatalf("third ReadBarcodeSet: err = %v, want io.EOF", err)
+	}
+}
+
+// Edge cases for the native tag search. Expected values are the behavior of
+// the regexes (BX:Z:(\S+)(?:\s|$) and VX:i:([01])(?:\s|$)) it replaced.
+func TestParseBarcodesTagEdgeCases(t *testing.T) {
+	cases := []struct {
+		name, desc, barcode, comments string
+		valid                         bool
+	}{
+		{"BX inside another tag", "XBX:Z:AAA VX:i:1", "AAA", "X", true},
+		{"empty BX value is skipped", "BX:Z: BX:Z:REAL VX:i:1", "REAL", "BX:Z:", true},
+		{"bad VX value is skipped", "VX:i:2 VX:i:1 BX:Z:AA", "AA", "VX:i:2", true},
+		{"VX value longer than one digit", "VX:i:10 BX:Z:AA", "AA", "", false},
+		{"tab separated, VX 0", "BX:Z:AA\tVX:i:0\tRG:Z:x", "AA", "RG:Z:x", false},
+	}
+	for _, c := range cases {
+		barcode, comments, valid := ParseBarcodes(newRecord(c.desc))
+		if string(barcode) != c.barcode || string(comments) != c.comments || valid != c.valid {
+			t.Errorf("%s: ParseBarcodes(%q) = (%q, %q, %v), want (%q, %q, %v)",
+				c.name, c.desc, barcode, comments, valid, c.barcode, c.comments, c.valid)
+		}
 	}
 }

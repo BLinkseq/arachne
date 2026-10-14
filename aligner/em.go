@@ -115,12 +115,12 @@ func DoEMForOneBarcode(work *WorkUnit,
 	// also sets the initial best-pair placement (active) for every read
 	positions := tagBestAlignments(alignments)
 
-	if len(barcode_reads) > 2 && *verbose {
-		fmt.Fprintf(os.Stderr, "working on barcode %s  num reads: %d  doing EM: %v  unique_barcode %v\n",
+	if *verbose {
+		fmt.Fprintf(os.Stderr, "barcode: %s | number of reads: %d | doing EM: %v\n",
 			string(barcode_reads[0].Barcode),
 			len(barcode_reads),
 			worthEM,
-			work.unique_barcode)
+		)
 	}
 
 	if worthEM {

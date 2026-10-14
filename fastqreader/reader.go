@@ -6,12 +6,11 @@ import (
 	"log"
 	"slices"
 
-	regexp "github.com/coregx/coregex"
 	"github.com/shenwei356/bio/seqio/fastx"
 )
 
-var bxRe = regexp.MustCompile(`BX:Z:(\S+)(?:\s|$)`)
-var vxRe = regexp.MustCompile(`VX:i:([01])(?:\s|$)`)
+var bxTag = []byte("BX:Z:")
+var vxTag = []byte("VX:i:")
 var vxVALID = []byte("1")
 var auxCOLON = []byte(":")
 var remCOLON = []byte("")
@@ -91,6 +90,58 @@ func (fqr *FastQReader) ReadOneRecord(result *FastQRecord) error {
 	return nil
 }
 
+func isSpace(c byte) bool {
+	return c == ' ' || c == '\t' || c == '\n' || c == '\f' || c == '\r'
+}
+
+// findBX locates the first "BX:Z:" tag with a non-empty value. It returns
+// [start, end, valueStart, valueEnd] of the match, where end includes the one
+// whitespace byte that follows the value, or nil if there is no such tag.
+func findBX(desc []byte) []int {
+	for off := 0; ; {
+		i := bytes.Index(desc[off:], bxTag)
+		if i < 0 {
+			return nil
+		}
+		start := off + i
+		vs := start + len(bxTag)
+		ve := vs
+		for ve < len(desc) && !isSpace(desc[ve]) {
+			ve++
+		}
+		if ve > vs {
+			end := ve
+			if ve < len(desc) {
+				end++
+			}
+			return []int{start, end, vs, ve}
+		}
+		off = start + 1
+	}
+}
+
+// findVX locates the first "VX:i:0" or "VX:i:1" tag that is followed by
+// whitespace or the end of the descriptor. It returns the same indices as findBX,
+// i.e., [start, end, valueStart, valueEnd]
+func findVX(desc []byte) []int {
+	for off := 0; ; {
+		i := bytes.Index(desc[off:], vxTag)
+		if i < 0 {
+			return nil
+		}
+		start := off + i
+		vs := start + len(vxTag)
+		if vs < len(desc) && (desc[vs] == '0' || desc[vs] == '1') && (vs+1 == len(desc) || isSpace(desc[vs+1])) {
+			end := vs + 1
+			if end < len(desc) {
+				end++
+			}
+			return []int{start, end, vs, vs + 1}
+		}
+		off = start + 1
+	}
+}
+
 // Parse fastx.Record and return []byte of BX:Z barcode
 // and VX:i value as a bool (0 = false, 1 = true). The second []byte return
 // is the remaining comments that arent' BX:Z: and VX:i
@@ -99,15 +150,15 @@ func ParseBarcodes(rec *fastx.Record) ([]byte, []byte, bool) {
 	var _comments []byte
 	var _valid bool
 
-	// regex match BX:Z:*
-	bloc := bxRe.FindSubmatchIndex(rec.Desc)
+	// match BX:Z:*
+	bloc := findBX(rec.Desc)
 	if bloc == nil {
 		return _barcode, _comments, _valid
 	}
 	_barcode = bytes.Clone(rec.Desc[bloc[2]:bloc[3]])
 
-	// regex match VX:i:[01]
-	vloc := vxRe.FindSubmatchIndex(rec.Desc)
+	// match VX:i:[01]
+	vloc := findVX(rec.Desc)
 	if vloc == nil {
 		return _barcode, _comments, _valid
 	}
