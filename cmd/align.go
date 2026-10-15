@@ -7,6 +7,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -141,7 +142,7 @@ func arachneAlign(cmd *cobra.Command, args []string) error {
 	rfa, _ := cmd.Flags().GetBool("rfa")
 	emErrorRate, _ := cmd.Flags().GetFloat64("em-error-rate")
 	threads, _ := cmd.Flags().GetInt("threads")
-	threads = safethreads(threads)
+	runtime.GOMAXPROCS(safethreads(threads))
 
 	//--- Setup config and run --------------------
 	config := aligner.ArachneArgs{

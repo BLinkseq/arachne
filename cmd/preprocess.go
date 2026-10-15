@@ -3,6 +3,7 @@ package cmd
 
 import (
 	"fmt"
+	"runtime"
 
 	"arachne/preprocess"
 
@@ -46,7 +47,7 @@ var prep = &cobra.Command{
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		threads, _ := cmd.Flags().GetInt("threads")
-		threads = safethreads(threads)
+		runtime.GOMAXPROCS(safethreads(threads))
 
 		return preprocess.Preprocess(threads, args[0], args[1], args[2])
 	},

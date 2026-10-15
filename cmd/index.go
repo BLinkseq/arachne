@@ -4,6 +4,7 @@ package cmd
 import (
 	"arachne/gominibwa"
 	"fmt"
+	"runtime"
 
 	"github.com/spf13/cobra"
 )
@@ -32,7 +33,7 @@ var indexCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		threads, _ := cmd.Flags().GetInt("threads")
 		verbose, _ := cmd.Flags().GetBool("verbose")
-		threads = safethreads(threads)
+		runtime.GOMAXPROCS(safethreads(threads))
 		return minibwaIndex(args[0], threads, verbose)
 	},
 }
