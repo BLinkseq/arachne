@@ -3,7 +3,6 @@ package cmd
 
 import (
 	"fmt"
-	"runtime"
 
 	"arachne/preprocess"
 
@@ -39,17 +38,16 @@ var prep = &cobra.Command{
 		if !checkIfExecInPath("samtools") {
 			return fmt.Errorf("samtools was not found on the PATH:")
 		}
-		return nil
-	},
-	RunE: func(cmd *cobra.Command, args []string) error {
-		threads, err := cmd.Flags().GetInt("threads")
+		_, err := cmd.Flags().GetInt("threads")
 		if err != nil {
 			return err
 		}
-		maxCores := runtime.NumCPU()
-		// clamp between 1 and max system threads
-		threads = min(maxCores, max(threads, 1))
-		runtime.GOMAXPROCS(threads)
+		return nil
+	},
+	RunE: func(cmd *cobra.Command, args []string) error {
+		threads, _ := cmd.Flags().GetInt("threads")
+		threads = safethreads(threads)
+
 		return preprocess.Preprocess(threads, args[0], args[1], args[2])
 	},
 }

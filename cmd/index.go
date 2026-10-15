@@ -31,23 +31,30 @@ var indexCmd = &cobra.Command{
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		threads, _ := cmd.Flags().GetInt("threads")
-		return minibwaIndex(args[0], max(threads, 1))
+		verbose, _ := cmd.Flags().GetBool("verbose")
+		threads = safethreads(threads)
+		return minibwaIndex(args[0], threads, verbose)
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(indexCmd)
 	indexCmd.Flags().IntP("threads", "t", 4, "Threads to use")
+	indexCmd.Flags().BoolP("verbose", "v", false, "Verbose output logging")
 }
 
 // Thin shim/wrapper to index a reference with minibwa index. Stderr only
 // prints on error.
-func minibwaIndex(fasta string, threads int) error {
-	fmt.Printf("   Building minibwa index for %s...\n", fasta)
+func minibwaIndex(fasta string, threads int, verbose bool) error {
+	if verbose {
+		fmt.Printf("   Building minibwa index for %s...\n", fasta)
+	}
 	err := gominibwa.Build(fasta, threads)
 	if err != nil {
-		return fmt.Errorf("Error: Failed to build minibwa reference index.\n%v", err)
+		return fmt.Errorf("Failed to build minibwa reference index.\n%v", err)
 	}
-	fmt.Println("   Index built successfully!")
+	if verbose {
+		fmt.Println("   Index built successfully!")
+	}
 	return nil
 }

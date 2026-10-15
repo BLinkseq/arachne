@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"runtime"
 )
 
 func filecheck(filename string) error {
@@ -47,4 +48,11 @@ func checkIfExecInPath(e string) bool {
 	_, err := exec.LookPath(e)
 	// return true if error nil, else false
 	return err == nil
+}
+
+// Parse the thread count provided to `threads` at the CLI and clamp it between 1 and the system max
+func safethreads(threads int) int {
+	maxCores := runtime.NumCPU()
+	// clamp between 1 and max system threads
+	return min(maxCores, max(threads, 1))
 }
