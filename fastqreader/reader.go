@@ -237,7 +237,10 @@ func (fqr *FastQReader) ReadBarcodeSet(space *[]FastQRecord) ([]FastQRecord, err
 			break
 		} else if fqr.LastBarcode != nil && !DifferentBarcode(&record_array[0].Barcode, &fqr.LastBarcode) && index >= 200 {
 			new_barcode = false
-			log.Printf("abnormal break: %s", string(record_array[0].Barcode))
+			// splitting invalid-barcode reads is expected; only warn for valid barcodes
+			if record_array[0].Valid {
+				log.Printf("abnormal break: %s", string(record_array[0].Barcode))
+			}
 			break
 		}
 	}
