@@ -2,6 +2,7 @@ package aligner
 
 import (
 	"fmt"
+	"math"
 
 	"arachne/fastqreader"
 	"arachne/gominibwa"
@@ -143,7 +144,7 @@ func GetAlignments(mapper *gominibwa.Mapper, reads []fastqreader.FastQRecord, de
 			}
 			readHits := hits[readID]
 
-			bestScore := 0
+			bestScore := math.MinInt // not 0: negative-scoring hits must still yield a candidate
 			for k := range readHits {
 				bestScore = max(bestScore, readHits[k].DPScore/matchScore)
 			}
