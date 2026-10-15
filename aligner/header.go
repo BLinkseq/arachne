@@ -1,6 +1,7 @@
 package aligner
 
 import (
+	"fmt"
 	"os"
 	"strings"
 	"time"
@@ -11,7 +12,7 @@ import (
 )
 
 // Return a SAM header built from the reference, sample ID, and arachne version
-func buildHeader(idx *gominibwa.Index, sampleid, version string) (*sam.Header, map[string]*sam.Reference) {
+func buildHeader(idx *gominibwa.Index, sampleid, version string) (*sam.Header, map[string]*sam.Reference, error) {
 	contigs := make(map[string]*sam.Reference)
 	references := make([]*sam.Reference, 0)
 
@@ -19,7 +20,7 @@ func buildHeader(idx *gominibwa.Index, sampleid, version string) (*sam.Header, m
 	for i, name := range names {
 		r, err := sam.NewReference(name, name, "NA", int(lengths[i]), nil, nil)
 		if err != nil {
-			panic(err)
+			return nil, nil, fmt.Errorf("invalid reference contig %q: %w", name, err)
 		}
 		references = append(references, r)
 		contigs[name] = r
@@ -27,7 +28,7 @@ func buildHeader(idx *gominibwa.Index, sampleid, version string) (*sam.Header, m
 
 	h, err := sam.NewHeader([]byte(""), references)
 	if err != nil {
-		panic(err)
+		return nil, nil, fmt.Errorf("unable to build SAM header: %w", err)
 	}
 
 	rg, err := sam.NewReadGroup(
@@ -44,7 +45,7 @@ func buildHeader(idx *gominibwa.Index, sampleid, version string) (*sam.Header, m
 		time.Now(),
 		0)
 	if err != nil {
-		panic(err)
+		return nil, nil, fmt.Errorf("invalid sample ID %q: %w", sampleid, err)
 	}
 	h.AddReadGroup(rg)
 
@@ -56,7 +57,7 @@ func buildHeader(idx *gominibwa.Index, sampleid, version string) (*sam.Header, m
 		"",                         // PP - empty bc Arachne produces the initial SAM
 		version)                    // VN
 	h.AddProgram(prog)
-	return h, contigs
+	return h, contigs, nil
 }
 
 // Sum of all contig lengths in the reference.

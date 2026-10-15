@@ -2,7 +2,7 @@ package aligner
 
 import (
 	"bufio"
-	"log"
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -13,12 +13,16 @@ type Region struct {
 	end   int
 }
 
-func loadCentromeres(filename *string) map[string]Region {
+func loadCentromeres(filename *string) (map[string]Region, error) {
 	toRet := map[string]Region{}
 	if *filename == "" {
-		return toRet
+		return toRet, nil
 	}
-	file, _ := os.Open(*filename)
+	file, err := os.Open(*filename)
+	if err != nil {
+		return nil, fmt.Errorf("unable to open centromeres file: %w", err)
+	}
+	defer file.Close()
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -46,15 +50,15 @@ func loadCentromeres(filename *string) map[string]Region {
 				continue
 			}
 			if start > end {
-				log.Fatalf("A row in the centromeres file has start > end:\n%v\t%v\t%v", chrom, start, end)
+				return nil, fmt.Errorf("a row in the centromeres file has start > end: %v\t%v\t%v", chrom, start, end)
 			}
 			toRet[chrom] = Region{start: start, end: end}
 		}
 	}
 	if err := scanner.Err(); err != nil {
-		log.Fatalf("Unable to read Centromeres file.\n%v", err)
+		return nil, fmt.Errorf("unable to read centromeres file: %w", err)
 	}
-	return toRet
+	return toRet, nil
 }
 
 // inCentromere reports whether pos falls within contig's known centromere

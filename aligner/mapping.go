@@ -247,7 +247,7 @@ func mapReads(mapper *gominibwa.Mapper, reads []fastqreader.FastQRecord) [][]gom
 	}
 	res, err := mapper.MapPairs(names, reads1, reads2)
 	if err != nil {
-		panic(fmt.Sprintf("minibwa failed to align a barcode: %v", err))
+		panic(fmt.Sprintf("minibwa failed to align barcode group: %v", err))
 	}
 	for k, i := range pairIdx {
 		hits[2*i] = res[k][0]

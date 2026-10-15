@@ -19,7 +19,7 @@ func writeCentromereFile(t *testing.T, contents string) string {
 
 func TestLoadCentromeresEmptyPathReturnsEmptyMap(t *testing.T) {
 	empty := ""
-	got := loadCentromeres(&empty)
+	got, _ := loadCentromeres(&empty)
 	if len(got) != 0 {
 		t.Errorf("loadCentromeres(\"\") = %v, want empty map", got)
 	}
@@ -27,7 +27,7 @@ func TestLoadCentromeresEmptyPathReturnsEmptyMap(t *testing.T) {
 
 func TestLoadCentromeresParsesStandardBED(t *testing.T) {
 	path := writeCentromereFile(t, "chr1\t100\t200\nchr2\t500\t900\n")
-	got := loadCentromeres(&path)
+	got, _ := loadCentromeres(&path)
 
 	want := map[string]Region{
 		"chr1": {start: 100, end: 200},
@@ -57,7 +57,7 @@ func TestLoadCentromeresSkipsBlankAndCommentLines(t *testing.T) {
 		"chr1\t100\t200",
 		"",
 	}, "\n"))
-	got := loadCentromeres(&path)
+	got, _ := loadCentromeres(&path)
 
 	if len(got) != 1 {
 		t.Fatalf("got %d regions, want 1: %v", len(got), got)
@@ -72,7 +72,7 @@ func TestLoadCentromeresTakesFirstThreeColumnsOfWiderBED(t *testing.T) {
 	// than 3 columns (name, score, strand, ...). Only chrom/start/end
 	// should be required.
 	path := writeCentromereFile(t, "chr1\t100\t200\tcen1\t0\t+\n")
-	got := loadCentromeres(&path)
+	got, _ := loadCentromeres(&path)
 
 	if got["chr1"] != (Region{start: 100, end: 200}) {
 		t.Errorf("chr1 region = %+v, want {100 200}", got["chr1"])
@@ -86,7 +86,7 @@ func TestLoadCentromeresSkipsMalformedRows(t *testing.T) {
 		"chr3\t100\tnotanumber", // non-integer end
 		"chr4\t100\t200",        // valid
 	}, "\n"))
-	got := loadCentromeres(&path)
+	got, _ := loadCentromeres(&path)
 
 	if len(got) != 1 {
 		t.Fatalf("got %d regions, want 1 (only the valid row): %v", len(got), got)
@@ -98,7 +98,7 @@ func TestLoadCentromeresSkipsMalformedRows(t *testing.T) {
 
 func TestLoadCentromeresLastRowWinsForRepeatedChrom(t *testing.T) {
 	path := writeCentromereFile(t, "chr1\t100\t200\nchr1\t300\t400\n")
-	got := loadCentromeres(&path)
+	got, _ := loadCentromeres(&path)
 
 	if len(got) != 1 {
 		t.Fatalf("got %d regions, want 1: %v", len(got), got)

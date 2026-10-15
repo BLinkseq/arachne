@@ -5,15 +5,15 @@ import "testing"
 // Regression test for a bounds check that used `>` instead of `>=` against
 // cigartable (length 5, valid indices 0-4). An op index of 5 slipped past
 // the check and caused an unrecovered index-out-of-range panic instead of
-// the intended "ILLEGAL CIGAR OP" panic.
+// the intended invalid-CIGAR-op panic.
 func TestFixCigarRejectsOutOfRangeOp(t *testing.T) {
 	defer func() {
 		r := recover()
 		if r == nil {
 			t.Fatalf("expected fixCigar to panic on an out-of-range cigar op")
 		}
-		if r != "ILLEGAL CIGAR OP" {
-			t.Errorf("panic value = %v, want the intended \"ILLEGAL CIGAR OP\" message", r)
+		if r != "invalid BAM CIGAR operation code 5" {
+			t.Errorf("panic value = %v, want the invalid-CIGAR-operation message", r)
 		}
 	}()
 	fixCigar([]uint32{5, 10})

@@ -141,7 +141,7 @@ func acceptMove(move Move) {
 			num, has := move.source.mismatchLocs[mismatchLoc]
 			if !has || num == 0 {
 				//there is a problem
-				panic("source molecule should have this entry: " + strconv.Itoa(mismatchLoc))
+				panic("source molecule lacks mismatch location " + strconv.Itoa(mismatchLoc))
 			}
 			if *debugPrintMove {
 				fmt.Println("removing mismatchLoc", mismatchLoc, move.source.mismatchLocs[mismatchLoc])

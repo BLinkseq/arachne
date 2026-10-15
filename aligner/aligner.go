@@ -6,12 +6,15 @@ import (
 	"crypto/md5"
 	"encoding/binary"
 	"fmt"
+	"io"
 	"math"
 	"math/rand"
 	"os"
 	"runtime"
+	"runtime/debug"
 	"sort"
 	"sync"
+	"sync/atomic"
 
 	"arachne/fastqreader"
 	"arachne/gominibwa"
@@ -108,8 +111,23 @@ var noUnmapped *bool
 // the value this was previously hard-coded to.
 var referenceLength = 3200000000.0
 
+// runFailure records the first error of a run. Workers and the read loop
+// report into it; Arachne returns it after teardown.
+type runFailure struct {
+	once   sync.Once
+	err    error
+	failed atomic.Bool
+}
+
+func (f *runFailure) set(err error) {
+	f.once.Do(func() {
+		f.err = err
+		f.failed.Store(true)
+	})
+}
+
 // this is the actual arachne program
-func Arachne(args ArachneArgs) {
+func Arachne(args ArachneArgs) error {
 	r1 = args.R1
 	r2 = args.R2
 	improper_pair_penalty = args.Improper_pair_penalty
@@ -118,7 +136,11 @@ func Arachne(args ArachneArgs) {
 	threads = args.Threads
 	debugTags = args.DebugTags
 	reference = args.Reference
-	centromeres = loadCentromeres(args.Centromeres)
+	var err error
+	centromeres, err = loadCentromeres(args.Centromeres)
+	if err != nil {
+		return err
+	}
 	inferDistance = args.InferDistance
 	AddComments = args.Comments
 	noUnmapped = args.NoUnmapped
@@ -129,7 +151,7 @@ func Arachne(args ArachneArgs) {
 	runtime.GOMAXPROCS(*threads + 2)
 	fastq, err := fastqreader.OpenFastQPair(*r1, *r2)
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("unable to open FASTQ input: %w", err)
 	}
 	defer fastq.Close()
 
@@ -139,7 +161,7 @@ func Arachne(args ArachneArgs) {
 	}
 	ref, err := gominibwa.LoadIndex(*reference)
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("unable to load reference index %q: %w", *reference, err)
 	}
 	defer ref.Close()
 	if *verbose {
@@ -148,7 +170,7 @@ func Arachne(args ArachneArgs) {
 	// short-read preset: paired-end mapping with mate rescue
 	mapOptions, err := gominibwa.NewOptions("sr")
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("unable to create aligner options: %w", err)
 	}
 	useRFA := args.RFA != nil && *args.RFA
 	emConfig := DefaultEMConfig(*improper_pair_penalty)
@@ -166,9 +188,16 @@ func Arachne(args ArachneArgs) {
 
 	// ------- SAM output writer -------------------------
 	// chanCap sized to absorb worker bursts
-	header, contigs := buildHeader(ref, *sample_id, VERSION)
+	header, contigs, err := buildHeader(ref, *sample_id, VERSION)
+	if err != nil {
+		return err
+	}
 	referenceLength = totalReferenceLength(contigs)
-	writeChannel, doneChan := NewSamWriterChannel(header, *threads*500, 2<<20, *threads)
+	writeChannel, doneChan, err := NewSamWriterChannel(header, *threads*500, 2<<20, *threads)
+	if err != nil {
+		return fmt.Errorf("unable to write SAM header: %w", err)
+	}
+	fail := &runFailure{}
 
 	// ── buffer pool ─────────────────────────────────────────────────────────
 	// One extra buffer beyond *threads so the main loop always has something
@@ -185,7 +214,7 @@ func Arachne(args ArachneArgs) {
 	for range *threads {
 		wg.Go(
 			func() {
-				WorkerThread(work_to_do, writeChannel, bufChan, ref.NewMapper(mapOptions), process, contigs, debugTags)
+				WorkerThread(work_to_do, writeChannel, bufChan, ref.NewMapper(mapOptions), process, contigs, debugTags, fail)
 			})
 	}
 	//finished := make (chan bool);
@@ -195,9 +224,16 @@ func Arachne(args ArachneArgs) {
 	for barcode_num := 1; ; barcode_num++ {
 		buf := <-bufChan
 		*buf = (*buf)[:0]
+		if fail.failed.Load() {
+			bufChan <- buf
+			break
+		}
 
 		records, err, validBC := fastq.ReadBarcodeSet(buf)
 		if err != nil {
+			if err != io.EOF {
+				fail.set(fmt.Errorf("error reading FASTQ input: %w", err))
+			}
 			bufChan <- buf // return unused buffer
 			break
 		}
@@ -217,7 +253,10 @@ func Arachne(args ArachneArgs) {
 	close(work_to_do)
 	wg.Wait()
 	close(writeChannel)
-	<-doneChan
+	if werr := <-doneChan; werr != nil {
+		fail.set(fmt.Errorf("error writing SAM output: %w", werr))
+	}
+	return fail.err
 }
 
 // A single "worker" thread. It tries to grab work units until it gets nil, then it shuts down.
@@ -228,12 +267,28 @@ func WorkerThread(
 	mapper *gominibwa.Mapper,
 	process BarcodeFunc,
 	contigs map[string]*sam.Reference,
-	debugtags *bool) {
+	debugtags *bool,
+	fail *runFailure) {
 	defer mapper.Close()
 	for work := range input {
-		process(work, out, mapper, contigs, debugtags)
+		// after a failure keep draining so the reader never blocks
+		if !fail.failed.Load() {
+			runWork(work, out, mapper, process, contigs, debugtags, fail)
+		}
 		bufChan <- work.poolBuf // return buffer for reuse
 	}
+}
+
+// runWork processes one barcode and turns a panic (a minibwa failure or a
+// violated internal invariant) into the run's error, with the stack attached.
+func runWork(work *WorkUnit, out chan *sam.Record, mapper *gominibwa.Mapper,
+	process BarcodeFunc, contigs map[string]*sam.Reference, debugtags *bool, fail *runFailure) {
+	defer func() {
+		if r := recover(); r != nil {
+			fail.set(fmt.Errorf("internal error aligning barcode group %d: %v\n%s", work.barcode_num, r, debug.Stack()))
+		}
+	}()
+	process(work, out, mapper, contigs, debugtags)
 }
 
 func StashAlignments(a *OrderedMap) *OrderedMap {
@@ -388,7 +443,7 @@ func moleculeMapqProbabilitySums(candidate_molecules []*CandidateMolecule, log_u
 			moleculeMoveProbability := math.Exp(sourceSinkChange * math.Ln10)
 			for _, alignment := range sourceAlignments {
 				if !alignment.active {
-					panic("setting molecule mapq for non active alignment")
+					panic("cannot set molecule MAPQ for an inactive alignment")
 				}
 				alignment.sum_move_probability_change += moleculeMoveProbability
 			}
@@ -436,13 +491,7 @@ func checkMates(alignments [][]*Alignment) {
 					continue
 				}
 				if !alignment.mate_alignment.active {
-					var activeMate *Alignment
-					for _, mateAln := range alignments[alignment.mate_id] {
-						if mateAln.active {
-							activeMate = mateAln
-						}
-					}
-					panic(fmt.Sprint("something wrong with mate of ", alignment.id, alignment.read_id, " is ", alignment.mate_alignment.id, alignment.mate_alignment.read_id, "actually active id", activeMate.id, activeMate.read_id))
+					panic(fmt.Sprintf("active alignment (id %d, read_id %d) has inactive mate alignment (id %d, read_id %d)", alignment.id, alignment.read_id, alignment.mate_alignment.id, alignment.mate_alignment.read_id))
 				}
 			}
 		}
@@ -714,7 +763,7 @@ func fastScore(sourceMolecule, sinkMolecule *CandidateMolecule, log_unpaired_pro
 				numMismatch, has := sourceMolecule.mismatchLocs[mismatchLoc]
 				if !has || numMismatch == 0 {
 					//there is a problem
-					panic(fmt.Sprint("source molecule should have this entry", has, numMismatch, sourceAlignment.contig, sourceAlignment.pos, sourceAlignment.id, sourceAlignment.read_id, mismatchLoc))
+					panic(fmt.Sprintf("source molecule lacks mismatch location %d for alignment (id %d, read_id %d, %s:%d)", mismatchLoc, sourceAlignment.id, sourceAlignment.read_id, sourceAlignment.contig, sourceAlignment.pos))
 				}
 				_, has = sourceMismatchRemoveCount[mismatchLoc]
 				sourceMismatchRemoveCount[mismatchLoc]++
@@ -930,7 +979,7 @@ func tagBestAlignments(alignments [][]*Alignment) [][]*Alignment {
 				first = false
 			}
 			if read_id != alignment.read_id {
-				panic(fmt.Sprintf("ids not idey%d%d", read_id, alignment.read_id))
+				panic(fmt.Sprintf("alignment read_id %d does not match its position %d", alignment.read_id, read_id))
 			}
 			mateAlignments := alignments[alignment.mate_id]
 			totalScore := float64(0)
@@ -938,7 +987,7 @@ func tagBestAlignments(alignments [][]*Alignment) [][]*Alignment {
 				//must consider the option of them separate vs them being together
 				totalScore = scoreAlignment(alignment, mateAlignment, 0.0) + (random.Float64() / 2.0)
 				if alignment.mate_id != mateAlignment.read_id {
-					panic(fmt.Sprintf("mates not matey%d%d", alignment.mate_id, mateAlignment.read_id))
+					panic(fmt.Sprintf("mate_id %d does not match mate alignment read_id %d", alignment.mate_id, mateAlignment.read_id))
 				}
 				if totalScore > bestScore {
 					bestScore = totalScore

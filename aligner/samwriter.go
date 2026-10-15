@@ -2,7 +2,7 @@ package aligner
 
 import (
 	"bytes"
-	"log"
+	"fmt"
 	"strconv"
 
 	sam "github.com/biogo/hts/sam"
@@ -13,8 +13,7 @@ func fixCigar(in []uint32) []uint32 {
 	for i := 0; i < len(in)/2; i++ {
 		idx := i * 2
 		if int(in[idx]) >= len(cigartable) {
-			log.Printf("BAMOP: %v", in[idx])
-			panic("ILLEGAL CIGAR OP")
+			panic(fmt.Sprintf("invalid BAM CIGAR operation code %d", in[idx]))
 		}
 		out[idx] = cigartable[int(in[idx])]
 		out[idx+1] = in[idx+1]
@@ -275,7 +274,7 @@ func buildRecord(aln, primary *Alignment, debugTags *bool, contigs map[string]*s
 func flushToChannel(alignments [][]*Alignment, out chan *sam.Record, contigs map[string]*sam.Reference, debugTags *bool) {
 	for _, alignmentArray := range alignments {
 		if len(alignmentArray) == 0 {
-			panic("not all read_ids are spoken for")
+			panic("read has no alignments")
 		}
 		read_output := false
 		for _, alignment := range alignmentArray {
@@ -294,7 +293,7 @@ func flushToChannel(alignments [][]*Alignment, out chan *sam.Record, contigs map
 			}
 		}
 		if !read_output {
-			panic("read_id has no active alignment but more than one alignment")
+			panic("read has alignments but none is active")
 		}
 	}
 }

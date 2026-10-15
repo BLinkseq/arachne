@@ -167,7 +167,9 @@ func arachneAlign(cmd *cobra.Command, args []string) error {
 		fmt.Fprintf(os.Stderr, "🕷️  Starting arachne. Version: %s\n", aligner.VERSION)
 	}
 
-	aligner.Arachne(config)
+	if err := aligner.Arachne(config); err != nil {
+		return err
+	}
 
 	if verbose {
 		elapsed := time.Since(start).Round(time.Second).String()

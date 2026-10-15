@@ -2,58 +2,35 @@ package aligner
 
 import (
 	"bufio"
-	"log"
 	"os"
 
 	"github.com/biogo/hts/sam"
 )
 
-// NewSamWriterChannel writes records received on the returned channel to stdout
-// Sends true on doneChan when the input channel is closed and all records have been flushed.
-func NewSamWriterChannel(head *sam.Header, cp, buff, threads int) (chan *sam.Record, chan bool) {
+// NewSamWriterChannel writes records received on the returned channel to stdout.
+// Sends the first write error (or nil) on doneChan when the input channel is
+// closed. After an error the channel is still drained so producers never block.
+func NewSamWriterChannel(head *sam.Header, cp, buff, threads int) (chan *sam.Record, chan error, error) {
 	outChan := make(chan *sam.Record, cp)
-	doneChan := make(chan bool)
+	doneChan := make(chan error, 1)
 
-	fh, err := os.Stdout, error(nil)
-	sio := bufio.NewWriterSize(fh, buff)
+	sio := bufio.NewWriterSize(os.Stdout, buff)
 	sw, err := sam.NewWriter(sio, head, sam.FlagDecimal)
 	if err != nil {
-		log.Fatalf("%v", err)
+		return nil, nil, err
 	}
 	go func() {
+		var werr error
 		for rec := range outChan {
-			err = sw.Write(rec)
-			if err != nil {
-				log.Fatalf("%v", err)
+			if werr == nil {
+				werr = sw.Write(rec)
 			}
 		}
-		err = sio.Flush() // always flush
-		if err != nil {
-			log.Fatalf("%v", err)
+		if err := sio.Flush(); werr == nil { // always flush
+			werr = err
 		}
-		doneChan <- true
+		doneChan <- werr
 	}()
 
-	return outChan, doneChan
+	return outChan, doneChan, nil
 }
-
-//func flushToChannel(alignments [][]*Alignment, out chan *sam.Record, contigs map[string]*sam.Reference, debugTags bool, attach_bx bool) {
-//	for _, alignmentArray := range alignments {
-//		if len(alignmentArray) == 0 {
-//			panic("not all read_ids are spoken for")
-//		}
-//		read_output := false
-//		for _, alignment := range alignmentArray {
-//			if alignment.active {
-//				out <- buildRecord(alignment, alignment, debugTags, attach_bx, contigs)
-//				if alignment.secondary != nil {
-//					out <- buildRecord(alignment.secondary, alignment, debugTags, attach_bx, contigs)
-//				}
-//				read_output = true
-//			}
-//		}
-//		if !read_output {
-//			panic("read_id has no active alignment but more than one alignment")
-//		}
-//	}
-//}

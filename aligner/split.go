@@ -71,7 +71,7 @@ func GetSplitAlignment(primary *Alignment, alignments []*Alignment, centromeres 
 			overlap = int(Pe - Ss)
 		} else {
 			if Ps < Ss {
-				panic("YEOWCH")
+				panic("secondary alignment starts before primary in non-overlap branch")
 			}
 			overlap = Se - Ps
 		}
