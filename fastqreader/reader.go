@@ -239,7 +239,7 @@ func (fqr *FastQReader) ReadBarcodeSet(space *[]FastQRecord) ([]FastQRecord, err
 			new_barcode = false
 			// splitting invalid-barcode reads is expected; only warn for valid barcodes
 			if record_array[0].Valid {
-				log.Printf("abnormal break: %s", string(record_array[0].Barcode))
+				log.Printf("abnormal break for barcode %s: possibly exceeding >30,000 reads for barcode", string(record_array[0].Barcode))
 			}
 			break
 		}
