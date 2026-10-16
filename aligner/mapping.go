@@ -2,11 +2,42 @@ package aligner
 
 import (
 	"fmt"
+	"maps"
 	"math"
+	"slices"
+	"strings"
 
 	"arachne/fastqreader"
 	"arachne/gominibwa"
 )
+
+// DefaultPlatform is the sequencing platform minibwa is configured for unless
+// told otherwise.
+const DefaultPlatform = "short"
+
+// platformPresets maps a sequencing platform to the minibwa preset used to map
+// its reads. minibwa has no PacBio- or ONT-specific presets, so both use its
+// generic long-read one for now; they are separate entries so they can diverge.
+// Only "short" is exercised end to end: arachne's pipeline reads paired FASTQ.
+var platformPresets = map[string]string{
+	"short":  "sr",
+	"pacbio": "lr",
+	"ont":    "lr",
+}
+
+// MinibwaPreset returns the minibwa preset for a platform. An empty platform
+// means DefaultPlatform.
+func MinibwaPreset(platform string) (string, error) {
+	if platform == "" {
+		platform = DefaultPlatform
+	}
+	preset, ok := platformPresets[platform]
+	if !ok {
+		valid := slices.Sorted(maps.Keys(platformPresets))
+		return "", fmt.Errorf("unknown platform %q, expected one of: %s", platform, strings.Join(valid, ", "))
+	}
+	return preset, nil
+}
 
 // CIGAR operation codes used throughout arachne (bwa's encoding, translated
 // to SAM's by fixCigar when records are written).

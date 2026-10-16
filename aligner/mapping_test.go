@@ -223,3 +223,35 @@ func TestGetAlignmentsWithMinibwa(t *testing.T) {
 		t.Errorf("mate of unmappable read: pos=%d, want 30300", mate.pos)
 	}
 }
+
+func TestMinibwaPreset(t *testing.T) {
+	for platform, want := range map[string]string{"": "sr", "short": "sr", "pacbio": "lr", "ont": "lr"} {
+		got, err := MinibwaPreset(platform)
+		if err != nil || got != want {
+			t.Errorf("MinibwaPreset(%q) = %q, %v; want %q", platform, got, err, want)
+		}
+	}
+	if _, err := MinibwaPreset("illumina"); err == nil {
+		t.Error("an unknown platform should be rejected")
+	}
+	// the default must stay the short-read profile arachne has always used
+	if DefaultPlatform != "short" {
+		t.Errorf("DefaultPlatform = %q, want \"short\"", DefaultPlatform)
+	}
+}
+
+// Every platform's preset must be one minibwa knows, and only the default
+// maps paired-end reads.
+func TestPlatformPresetsAreValidMinibwaPresets(t *testing.T) {
+	for platform := range platformPresets {
+		preset, _ := MinibwaPreset(platform)
+		o, err := gominibwa.NewOptions(preset)
+		if err != nil {
+			t.Errorf("platform %q: minibwa rejects preset %q: %v", platform, preset, err)
+			continue
+		}
+		if paired := o.Flags()&gominibwa.FlagPairedEnd != 0; paired != (platform == DefaultPlatform) {
+			t.Errorf("platform %q (preset %q): paired-end = %v", platform, preset, paired)
+		}
+	}
+}

@@ -44,6 +44,7 @@ type ArachneArgs struct {
 	NoUnmapped        *bool
 	RFA               *bool // resolve multi-mapping reads with RFA instead of the default EM
 	EMErrorRate       *float64
+	Platform          *string // sequencing platform, selects the minibwa preset; default DefaultPlatform
 }
 
 // types and functions to be able to sort a list of aligntments by position,
@@ -167,8 +168,16 @@ func Arachne(args ArachneArgs) error {
 	if *verbose {
 		fmt.Fprint(os.Stderr, "Reference loaded\n")
 	}
-	// short-read preset: paired-end mapping with mate rescue
-	mapOptions, err := gominibwa.NewOptions("sr")
+	// the default "short" platform uses minibwa's short-read preset: paired-end mapping with mate rescue
+	platform := DefaultPlatform
+	if args.Platform != nil {
+		platform = *args.Platform
+	}
+	preset, err := MinibwaPreset(platform)
+	if err != nil {
+		panic(err)
+	}
+	mapOptions, err := gominibwa.NewOptions(preset)
 	if err != nil {
 		return fmt.Errorf("unable to create aligner options: %w", err)
 	}

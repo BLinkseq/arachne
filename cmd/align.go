@@ -118,6 +118,11 @@ func init() {
 	alignCmd.Flags().Int64P("infer-distance", "d", 50000, "Distance at which to consider reads with the same barcode to be from different molecules")
 	alignCmd.Flags().Bool("rfa", false, "Resolve multi-mapping reads with the original RFA method instead of the default EM")
 	alignCmd.Flags().Float64P("em-error-rate", "e", 0.001, "Per-base mismatch rate in the EM likelihood (ignored with --rfa)")
+	// not exposed to users yet: selects the minibwa preset (short, pacbio, ont)
+	alignCmd.Flags().String("platform", aligner.DefaultPlatform, "Sequencing platform (short, pacbio, ont)")
+	if err := alignCmd.Flags().MarkHidden("platform"); err != nil {
+		panic(err)
+	}
 	alignCmd.Flags().BoolP("no-unmapped", "u", false, "Exclude unmapped reads from output")
 	alignCmd.Flags().StringP("sample-id", "s", "", "Sample name (required)")
 	if err := alignCmd.MarkFlagRequired("sample-id"); err != nil {
@@ -141,6 +146,10 @@ func arachneAlign(cmd *cobra.Command, args []string) error {
 	noUnmapped, _ := cmd.Flags().GetBool("no-unmapped")
 	rfa, _ := cmd.Flags().GetBool("rfa")
 	emErrorRate, _ := cmd.Flags().GetFloat64("em-error-rate")
+	platform, _ := cmd.Flags().GetString("platform")
+	if _, err := aligner.MinibwaPreset(platform); err != nil {
+		return err
+	}
 	threads, _ := cmd.Flags().GetInt("threads")
 	runtime.GOMAXPROCS(safethreads(threads))
 
@@ -162,6 +171,7 @@ func arachneAlign(cmd *cobra.Command, args []string) error {
 		NoUnmapped:            &noUnmapped,
 		RFA:                   &rfa,
 		EMErrorRate:           &emErrorRate,
+		Platform:              &platform,
 	}
 	start := time.Now()
 	if verbose {

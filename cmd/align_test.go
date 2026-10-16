@@ -1,6 +1,9 @@
 package cmd
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 // Regression test: aligner.scoreAlignment() *adds* --improper-pair-penalty
 // to the pair score, so the flag must always be normalized to a
@@ -36,5 +39,23 @@ func TestRFAFlag(t *testing.T) {
 		if alignCmd.Flags().Lookup(old) != nil {
 			t.Errorf("--%s should no longer exist", old)
 		}
+	}
+}
+
+// --platform is plumbing for later: it must exist, stay out of --help, and
+// default to the short-read profile.
+func TestPlatformFlagIsHiddenAndDefaultsToShort(t *testing.T) {
+	f := alignCmd.Flags().Lookup("platform")
+	if f == nil {
+		t.Fatal("--platform flag is not defined")
+	}
+	if !f.Hidden {
+		t.Error("--platform should be hidden")
+	}
+	if f.DefValue != "short" {
+		t.Errorf("--platform defaults to %q, want \"short\"", f.DefValue)
+	}
+	if strings.Contains(alignCmd.UsageString(), "--platform") {
+		t.Error("--platform must not appear in the usage text")
 	}
 }
