@@ -1,6 +1,6 @@
 export CGO_LDFLAGS = -L$(shell pwd)/gominibwa/minibwa
 
-VERSION=0.3.0
+VERSION=0.3.1
 
 all: arachne gominibwa/minibwa/libminibwa.a gominibwa/minibwa/minibwa
 
