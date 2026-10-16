@@ -59,3 +59,26 @@ func TestPlatformFlagIsHiddenAndDefaultsToShort(t *testing.T) {
 		t.Error("--platform must not appear in the usage text")
 	}
 }
+
+// Short reads take REF R1 R2; the long-read platforms take REF R1.
+func TestAlignArgCountDependsOnPlatform(t *testing.T) {
+	defer func() { _ = alignCmd.Flags().Set("platform", "short") }()
+	for _, c := range []struct {
+		platform string
+		args     []string
+		wantErr  string
+	}{
+		{"short", []string{"ref.fa", "r1.fq"}, "accepts 3 arg(s), received 2"},
+		{"ont", []string{"ref.fa", "r1.fq", "r2.fq"}, "accepts 2 arg(s), received 3"},
+		{"pacbio", []string{"ref.fa", "r1.fq", "r2.fq"}, "accepts 2 arg(s), received 3"},
+		{"illumina", []string{"ref.fa", "r1.fq", "r2.fq"}, "unknown platform"},
+	} {
+		if err := alignCmd.Flags().Set("platform", c.platform); err != nil {
+			t.Fatal(err)
+		}
+		err := alignCmd.Args(alignCmd, c.args)
+		if err == nil || !strings.Contains(err.Error(), c.wantErr) {
+			t.Errorf("platform %s with %d args: error %v, want one containing %q", c.platform, len(c.args), err, c.wantErr)
+		}
+	}
+}

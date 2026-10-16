@@ -52,7 +52,9 @@ type FastQReader struct {
 // Close the underlying FASTX readers
 func (fq *FastQReader) Close() {
 	fq.R1.Close()
-	fq.R2.Close()
+	if fq.R2 != nil { // nil for single-end input
+		fq.R2.Close()
+	}
 }
 
 // Open two (paired) FASTQ files for synchronous reading.
@@ -68,24 +70,44 @@ func OpenFastQPair(R1, R2 string) (*FastQReader, error) {
 	return &FastQReader{R1: r1, R2: r2}, nil
 }
 
+// OpenFastQ opens one FASTQ file of unpaired reads (long reads). Records come
+// back with an empty Read2.
+func OpenFastQ(R1 string) (*FastQReader, error) {
+	r1, err := fastx.NewReader(nil, R1, "")
+	if err != nil {
+		return nil, err
+	}
+	return &FastQReader{R1: r1}, nil
+}
+
 // ReadOneRecord reads one paired record into result, populating your
-// existing FastQRecord struct.
+// existing FastQRecord struct. With a single FASTQ (OpenFastQ) the record
+// holds only Read1.
 func (fqr *FastQReader) ReadOneRecord(result *FastQRecord) error {
 	rec1, err := fqr.R1.Read()
 	if err != nil {
 		return err
 	}
-	rec2, err := fqr.R2.Read()
-	if err != nil {
-		return err
+	var rec2 *fastx.Record
+	if fqr.R2 != nil {
+		if rec2, err = fqr.R2.Read(); err != nil {
+			return err
+		}
+		// paired names end in /1 or /2
+		result.ReadInfo = string(rec1.ID[:len(rec1.ID)-2])
+	} else {
+		// long read names such as UUIDs or movie/zmw/ccs rarely carry a /1
+		result.ReadInfo = string(bytes.TrimSuffix(rec1.ID, []byte("/1")))
 	}
-
-	result.ReadInfo = string(rec1.ID[:len(rec1.ID)-2])
 	result.Barcode, result.Tags, result.Valid = ParseBarcodes(rec1)
 	result.Read1 = slices.Clone(rec1.Seq.Seq)
 	result.ReadQual1 = slices.Clone(rec1.Seq.Qual)
-	result.Read2 = slices.Clone(rec2.Seq.Seq)
-	result.ReadQual2 = slices.Clone(rec2.Seq.Qual)
+	if rec2 != nil {
+		result.Read2 = slices.Clone(rec2.Seq.Seq)
+		result.ReadQual2 = slices.Clone(rec2.Seq.Qual)
+	} else {
+		result.Read2, result.ReadQual2 = nil, nil
+	}
 
 	return nil
 }

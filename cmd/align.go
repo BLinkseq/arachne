@@ -30,7 +30,17 @@ var alignCmd = &cobra.Command{
 		if len(args) == 0 {
 			fmt.Printf("%s", cmd.UsageString())
 		}
-		if err := cobra.ExactArgs(3)(cmd, args); err != nil {
+		// REF.fa R1.fq R2.fq, or REF.fa R1.fq for single-end (long) reads
+		platform, _ := cmd.Flags().GetString("platform")
+		profile, err := aligner.LookupPlatform(platform)
+		if err != nil {
+			return err
+		}
+		nargs := 3
+		if profile.SingleEnd {
+			nargs = 2
+		}
+		if err := cobra.ExactArgs(nargs)(cmd, args); err != nil {
 			return err
 		}
 		for _, j := range args {
@@ -147,17 +157,21 @@ func arachneAlign(cmd *cobra.Command, args []string) error {
 	rfa, _ := cmd.Flags().GetBool("rfa")
 	emErrorRate, _ := cmd.Flags().GetFloat64("em-error-rate")
 	platform, _ := cmd.Flags().GetString("platform")
-	if _, err := aligner.MinibwaPreset(platform); err != nil {
+	if _, err := aligner.LookupPlatform(platform); err != nil {
 		return err
 	}
 	threads, _ := cmd.Flags().GetInt("threads")
 	runtime.GOMAXPROCS(safethreads(threads))
 
 	//--- Setup config and run --------------------
+	var r2 *string // none for single-end reads
+	if len(args) > 2 {
+		r2 = &args[2]
+	}
 	config := aligner.ArachneArgs{
 		Reference:             &args[0],
 		R1:                    &args[1],
-		R2:                    &args[2],
+		R2:                    r2,
 		Improper_pair_penalty: &improperPairPenalty,
 		Sample_id:             &sampleID,
 		Threads:               &threads,
@@ -170,8 +184,11 @@ func arachneAlign(cmd *cobra.Command, args []string) error {
 		Comments:              &comments,
 		NoUnmapped:            &noUnmapped,
 		RFA:                   &rfa,
-		EMErrorRate:           &emErrorRate,
 		Platform:              &platform,
+	}
+	// otherwise the platform's own default applies
+	if cmd.Flags().Changed("em-error-rate") {
+		config.EMErrorRate = &emErrorRate
 	}
 	start := time.Now()
 	if verbose {

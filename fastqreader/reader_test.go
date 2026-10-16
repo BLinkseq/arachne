@@ -218,3 +218,41 @@ func TestParseBarcodesTagEdgeCases(t *testing.T) {
 		}
 	}
 }
+
+// A single FASTQ (long reads) gives records with only Read1. Read names lose
+// a /1 suffix if they have one but are otherwise kept whole, since long read
+// names are UUIDs or movie/zmw/ccs rather than ending in /1.
+func TestOpenFastQSingleEnd(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "long.fastq")
+	writeFastq(t, path, [][2]string{
+		{"3f1e9a6c-4b2d-4c43-9a55-0d8f2b6a7e11 BX:Z:AAAA-1 VX:i:1", "ACGTACGTAC"},
+		{"m64011_190830/12/ccs BX:Z:AAAA-1 VX:i:1", "GGGGTTTTAA"},
+		{"read3/1 BX:Z:CCCC-1 VX:i:1", "TTTTCCCCAA"},
+	})
+	fqr, err := OpenFastQ(path)
+	if err != nil {
+		t.Fatalf("OpenFastQ: %v", err)
+	}
+	defer fqr.Close() // must cope with there being no second reader
+
+	batch, err, _ := fqr.ReadBarcodeSet(nil)
+	if err != nil {
+		t.Fatalf("ReadBarcodeSet: %v", err)
+	}
+	if len(batch) != 2 {
+		t.Fatalf("first batch has %d records, want the 2 under barcode AAAA-1", len(batch))
+	}
+	want := []string{"3f1e9a6c-4b2d-4c43-9a55-0d8f2b6a7e11", "m64011_190830/12/ccs"}
+	for i, rec := range batch {
+		if rec.ReadInfo != want[i] {
+			t.Errorf("record %d name = %q, want %q", i, rec.ReadInfo, want[i])
+		}
+		if len(rec.Read1) == 0 || rec.Read2 != nil || rec.ReadQual2 != nil {
+			t.Errorf("record %d: Read1 len %d, Read2 %v, ReadQual2 %v; want Read1 only", i, len(rec.Read1), rec.Read2, rec.ReadQual2)
+		}
+	}
+	batch, err, _ = fqr.ReadBarcodeSet(nil)
+	if err != nil || len(batch) != 1 || batch[0].ReadInfo != "read3" {
+		t.Errorf("second batch = %d records, err %v; want one record named \"read3\" (suffix /1 removed)", len(batch), err)
+	}
+}

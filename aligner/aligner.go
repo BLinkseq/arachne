@@ -150,7 +150,23 @@ func Arachne(args ArachneArgs) error {
 	DEBUG = args.DEBUG
 	debugPrintMove = args.DebugPrintMove
 	runtime.GOMAXPROCS(*threads + 2)
-	fastq, err := fastqreader.OpenFastQPair(*r1, *r2)
+	platform := DefaultPlatform
+	if args.Platform != nil {
+		platform = *args.Platform
+	}
+	profile, err := LookupPlatform(platform)
+	if err != nil {
+		return err
+	}
+	var fastq *fastqreader.FastQReader
+	if profile.SingleEnd {
+		fastq, err = fastqreader.OpenFastQ(*r1)
+	} else {
+		if r2 == nil {
+			return fmt.Errorf("platform %q needs two FASTQ files (R1 and R2)", platform)
+		}
+		fastq, err = fastqreader.OpenFastQPair(*r1, *r2)
+	}
 	if err != nil {
 		return fmt.Errorf("unable to open FASTQ input: %w", err)
 	}
@@ -169,22 +185,20 @@ func Arachne(args ArachneArgs) error {
 		fmt.Fprint(os.Stderr, "Reference loaded\n")
 	}
 	// the default "short" platform uses minibwa's short-read preset: paired-end mapping with mate rescue
-	platform := DefaultPlatform
-	if args.Platform != nil {
-		platform = *args.Platform
-	}
-	preset, err := MinibwaPreset(platform)
-	if err != nil {
-		panic(err)
-	}
-	mapOptions, err := gominibwa.NewOptions(preset)
+	mapOptions, err := gominibwa.NewOptions(profile.Preset)
 	if err != nil {
 		return fmt.Errorf("unable to create aligner options: %w", err)
 	}
 	useRFA := args.RFA != nil && *args.RFA
 	emConfig := DefaultEMConfig(*improper_pair_penalty)
+	emConfig.ErrorRate = profile.EMErrorRate
 	if args.EMErrorRate != nil {
 		emConfig.ErrorRate = *args.EMErrorRate
+	}
+	if profile.SingleEnd {
+		// long reads carry indels about as often as mismatches, unlike the
+		// short-read default of one indel event in 10 mismatches
+		emConfig.IndelRate = emConfig.ErrorRate
 	}
 	process := barcodeFuncFor(useRFA, *improper_pair_penalty, emConfig)
 	if *verbose {
@@ -197,7 +211,7 @@ func Arachne(args ArachneArgs) error {
 
 	// ------- SAM output writer -------------------------
 	// chanCap sized to absorb worker bursts
-	header, contigs, err := buildHeader(ref, *sample_id, VERSION)
+	header, contigs, err := buildHeader(ref, *sample_id, profile.ReadGroup, VERSION)
 	if err != nil {
 		return err
 	}
@@ -370,7 +384,7 @@ func scoreAlignment(aln *Alignment, mate *Alignment, log_molecule_penalty float6
 			score -= float64(mate.soft_clipped_length) * 0.5
 		}
 	}
-	if mate == nil || aln == nil || !isPair(aln, mate) {
+	if (aln == nil || !aln.single_end) && (mate == nil || aln == nil || !isPair(aln, mate)) {
 		score += *improper_pair_penalty
 	}
 	if aln != nil {
@@ -619,14 +633,22 @@ func estimateMapQualities(alignments [][]*Alignment, candidate_molecules []*Cand
 		sort.Float64s(scores)
 		n := len(scores)
 		start := max(0, n-15)
+		// Scores are log10 probabilities. Over a long read they fall far
+		// below -308, where exp underflows to 0 and the normalisation below
+		// becomes 0/0. Measuring them from the top score fixes that. The
+		// shift is only applied then, so ordinary scores are untouched.
+		shift := 0.0
+		if top := scores[n-1]; top < -300 {
+			shift = top
+		}
 		for _, s := range scores[start:] {
-			total_probability += math.Exp(s * math.Ln10)
+			total_probability += math.Exp((s - shift) * math.Ln10)
 		}
 
 		// calculate mapq
 		for _, alignment := range alignmentArray {
 			score := scoreAlignment(alignment, alignment.mate_alignment, log_molecule_penalty)
-			mapq := -10.0 * math.Log10(1.0-math.Exp(score*math.Ln10)/total_probability)
+			mapq := -10.0 * math.Log10(1.0-math.Exp((score-shift)*math.Ln10)/total_probability)
 			moleculeMapq := -10.0 * math.Log10(1.0-(1.0/alignment.sum_move_probability_change)) // method 2: molecule move probability normalization
 			mapq = math.Min(math.Min(mapq, moleculeMapq), 60.0)                                 // cap at q60
 			if inCentromere(centromeres, alignment.contig, alignment.pos) {

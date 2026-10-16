@@ -224,14 +224,19 @@ func TestGetAlignmentsWithMinibwa(t *testing.T) {
 	}
 }
 
-func TestMinibwaPreset(t *testing.T) {
-	for platform, want := range map[string]string{"": "sr", "short": "sr", "pacbio": "lr", "ont": "lr"} {
-		got, err := MinibwaPreset(platform)
+func TestLookupPlatform(t *testing.T) {
+	for platform, want := range map[string]Platform{
+		"":       {Preset: "sr", ReadGroup: "ILLUMINA", EMErrorRate: 0.001},
+		"short":  {Preset: "sr", ReadGroup: "ILLUMINA", EMErrorRate: 0.001},
+		"pacbio": {Preset: "lr", ReadGroup: "PACBIO", SingleEnd: true, EMErrorRate: 0.001},
+		"ont":    {Preset: "lr", ReadGroup: "ONT", SingleEnd: true, EMErrorRate: 0.02},
+	} {
+		got, err := LookupPlatform(platform)
 		if err != nil || got != want {
-			t.Errorf("MinibwaPreset(%q) = %q, %v; want %q", platform, got, err, want)
+			t.Errorf("LookupPlatform(%q) = %+v, %v; want %+v", platform, got, err, want)
 		}
 	}
-	if _, err := MinibwaPreset("illumina"); err == nil {
+	if _, err := LookupPlatform("illumina"); err == nil {
 		t.Error("an unknown platform should be rejected")
 	}
 	// the default must stay the short-read profile arachne has always used
@@ -240,18 +245,17 @@ func TestMinibwaPreset(t *testing.T) {
 	}
 }
 
-// Every platform's preset must be one minibwa knows, and only the default
-// maps paired-end reads.
+// Every platform's preset must be one minibwa knows, and only the paired
+// platforms map paired-end.
 func TestPlatformPresetsAreValidMinibwaPresets(t *testing.T) {
-	for platform := range platformPresets {
-		preset, _ := MinibwaPreset(platform)
-		o, err := gominibwa.NewOptions(preset)
+	for name, p := range platforms {
+		o, err := gominibwa.NewOptions(p.Preset)
 		if err != nil {
-			t.Errorf("platform %q: minibwa rejects preset %q: %v", platform, preset, err)
+			t.Errorf("platform %q: minibwa rejects preset %q: %v", name, p.Preset, err)
 			continue
 		}
-		if paired := o.Flags()&gominibwa.FlagPairedEnd != 0; paired != (platform == DefaultPlatform) {
-			t.Errorf("platform %q (preset %q): paired-end = %v", platform, preset, paired)
+		if paired := o.Flags()&gominibwa.FlagPairedEnd != 0; paired == p.SingleEnd {
+			t.Errorf("platform %q (preset %q): paired-end = %v but SingleEnd = %v", name, p.Preset, paired, p.SingleEnd)
 		}
 	}
 }
