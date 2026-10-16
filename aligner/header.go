@@ -12,7 +12,7 @@ import (
 )
 
 // Return a SAM header built from the reference, sample ID, and arachne version
-func buildHeader(idx *gominibwa.Index, sampleid, version string) (*sam.Header, map[string]*sam.Reference, error) {
+func buildHeader(idx *gominibwa.Index, sampleid, platform, version string) (*sam.Header, map[string]*sam.Reference, error) {
 	contigs := make(map[string]*sam.Reference)
 	references := make([]*sam.Reference, 0)
 
@@ -32,14 +32,14 @@ func buildHeader(idx *gominibwa.Index, sampleid, version string) (*sam.Header, m
 	}
 
 	rg, err := sam.NewReadGroup(
-		sampleid,   //ID
-		"",         //CN
-		"",         //DS
-		"",         //LB
-		"",         //PG
-		"ILLUMINA", //PL
-		"",         //PU: just make same as ID?
-		sampleid,   //SM
+		sampleid, //ID
+		"",       //CN
+		"",       //DS
+		"",       //LB
+		"",       //PG
+		platform, //PL
+		"",       //PU: just make same as ID?
+		sampleid, //SM
 		"",
 		"",
 		time.Now(),

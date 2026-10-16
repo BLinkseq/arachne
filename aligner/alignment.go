@@ -6,6 +6,7 @@ type Alignment struct {
 	id                                int
 	comments                          *[]byte
 	read1                             bool
+	single_end                        bool // read is not part of a pair (long reads)
 	is_proper                         bool
 	soft_clipped                      int
 	soft_clipped_length               int
@@ -66,6 +67,9 @@ func (aln *Alignment) Print() {
 }
 
 func (aln *Alignment) IsUnmapped() bool {
+	if aln.single_end {
+		return aln.pos == -1
+	}
 	if !aln.is_proper && aln.score-17 < 19 {
 		return true
 	}

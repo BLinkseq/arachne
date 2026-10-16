@@ -30,7 +30,17 @@ var alignCmd = &cobra.Command{
 		if len(args) == 0 {
 			fmt.Printf("%s", cmd.UsageString())
 		}
-		if err := cobra.ExactArgs(3)(cmd, args); err != nil {
+		// REF.fa R1.fq R2.fq, or REF.fa R1.fq for single-end (long) reads
+		platform, _ := cmd.Flags().GetString("platform")
+		profile, err := aligner.LookupPlatform(platform)
+		if err != nil {
+			return err
+		}
+		nargs := 3
+		if profile.SingleEnd {
+			nargs = 2
+		}
+		if err := cobra.ExactArgs(nargs)(cmd, args); err != nil {
 			return err
 		}
 		for _, j := range args {
@@ -118,6 +128,11 @@ func init() {
 	alignCmd.Flags().Int64P("infer-distance", "d", 50000, "Distance at which to consider reads with the same barcode to be from different molecules")
 	alignCmd.Flags().Bool("rfa", false, "Resolve multi-mapping reads with the original RFA method instead of the default EM")
 	alignCmd.Flags().Float64P("em-error-rate", "e", 0.001, "Per-base mismatch rate in the EM likelihood (ignored with --rfa)")
+	// not exposed to users yet: selects the minibwa preset (short, pacbio, ont)
+	alignCmd.Flags().String("platform", aligner.DefaultPlatform, "Sequencing platform (short, pacbio, ont)")
+	if err := alignCmd.Flags().MarkHidden("platform"); err != nil {
+		panic(err)
+	}
 	alignCmd.Flags().BoolP("no-unmapped", "u", false, "Exclude unmapped reads from output")
 	alignCmd.Flags().StringP("sample-id", "s", "", "Sample name (required)")
 	if err := alignCmd.MarkFlagRequired("sample-id"); err != nil {
@@ -141,14 +156,22 @@ func arachneAlign(cmd *cobra.Command, args []string) error {
 	noUnmapped, _ := cmd.Flags().GetBool("no-unmapped")
 	rfa, _ := cmd.Flags().GetBool("rfa")
 	emErrorRate, _ := cmd.Flags().GetFloat64("em-error-rate")
+	platform, _ := cmd.Flags().GetString("platform")
+	if _, err := aligner.LookupPlatform(platform); err != nil {
+		return err
+	}
 	threads, _ := cmd.Flags().GetInt("threads")
 	runtime.GOMAXPROCS(safethreads(threads))
 
 	//--- Setup config and run --------------------
+	var r2 *string // none for single-end reads
+	if len(args) > 2 {
+		r2 = &args[2]
+	}
 	config := aligner.ArachneArgs{
 		Reference:             &args[0],
 		R1:                    &args[1],
-		R2:                    &args[2],
+		R2:                    r2,
 		Improper_pair_penalty: &improperPairPenalty,
 		Sample_id:             &sampleID,
 		Threads:               &threads,
@@ -162,7 +185,9 @@ func arachneAlign(cmd *cobra.Command, args []string) error {
 		NoUnmapped:            &noUnmapped,
 		RFA:                   &rfa,
 		EMErrorRate:           &emErrorRate,
+		Platform:              &platform,
 	}
+
 	start := time.Now()
 	if verbose {
 		fmt.Fprintf(os.Stderr, "🕷️  Starting arachne. Version: %s\n", aligner.VERSION)

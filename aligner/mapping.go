@@ -2,11 +2,48 @@ package aligner
 
 import (
 	"fmt"
+	"maps"
 	"math"
+	"slices"
+	"strings"
 
 	"arachne/fastqreader"
 	"arachne/gominibwa"
 )
+
+// DefaultPlatform is the sequencing platform minibwa is configured for unless
+// told otherwise.
+const DefaultPlatform = "short"
+
+// Platform describes how reads from one sequencing platform are mapped.
+type Platform struct {
+	Preset    string // minibwa preset
+	ReadGroup string // SAM @RG PL value
+	// SingleEnd platforms (long reads) come as one FASTQ and are mapped unpaired.
+	SingleEnd bool
+}
+
+// minibwa has no PacBio- or ONT-specific presets, so both use its generic
+// long-read one for now; they are separate entries so they can diverge.
+var platforms = map[string]Platform{
+	"short":  {Preset: "sr", ReadGroup: "ILLUMINA"},
+	"pacbio": {Preset: "lr", ReadGroup: "PACBIO", SingleEnd: true},
+	"ont":    {Preset: "lr", ReadGroup: "ONT", SingleEnd: true},
+}
+
+// LookupPlatform returns the profile for a platform. An empty platform means
+// DefaultPlatform.
+func LookupPlatform(platform string) (Platform, error) {
+	if platform == "" {
+		platform = DefaultPlatform
+	}
+	p, ok := platforms[platform]
+	if !ok {
+		valid := slices.Sorted(maps.Keys(platforms))
+		return Platform{}, fmt.Errorf("unknown platform %q, expected one of: %s", platform, strings.Join(valid, ", "))
+	}
+	return p, nil
+}
 
 // CIGAR operation codes used throughout arachne (bwa's encoding, translated
 // to SAM's by fixCigar when records are written).
@@ -128,6 +165,8 @@ func GetAlignments(mapper *gominibwa.Mapper, reads []fastqreader.FastQRecord, de
 	hits := mapReads(mapper, reads)
 	matchScore := max(mapper.Options().MatchScore(), 1)
 	idx := mapper.Index()
+	// without paired-end mode (long reads) every read is mapped on its own
+	singleEnd := mapper.Options().Flags()&gominibwa.FlagPairedEnd == 0
 
 	candidates = make([][]*Alignment, 2*len(reads))
 	full = make([][]*Alignment, 2*len(reads))
@@ -145,8 +184,11 @@ func GetAlignments(mapper *gominibwa.Mapper, reads []fastqreader.FastQRecord, de
 			readHits := hits[readID]
 
 			bestScore := math.MinInt // not 0: negative-scoring hits must still yield a candidate
+			bestHit := 0
 			for k := range readHits {
-				bestScore = max(bestScore, readHits[k].DPScore/matchScore)
+				if sc := readHits[k].DPScore / matchScore; sc > bestScore {
+					bestScore, bestHit = sc, k
+				}
 			}
 			newAlignment := func() *Alignment {
 				return &Alignment{
@@ -158,6 +200,7 @@ func GetAlignments(mapper *gominibwa.Mapper, reads []fastqreader.FastQRecord, de
 					mapq_data:                   &MapQData{active_alignments_in_molecules: ""},
 					barcode:                     &fq.Barcode,
 					read1:                       read1,
+					single_end:                  singleEnd,
 					read_id:                     readID,
 					mate_id:                     readID ^ 1,
 					molecule_id:                 -1,
@@ -205,7 +248,7 @@ func GetAlignments(mapper *gominibwa.Mapper, reads []fastqreader.FastQRecord, de
 				hitID++
 
 				full[readID] = append(full[readID], aln)
-				if aln.score >= bestScore-delta {
+				if aln.score >= bestScore-delta && (!singleEnd || competes(h, &readHits[bestHit])) {
 					candidates[readID] = append(candidates[readID], aln)
 				}
 			}
@@ -214,9 +257,28 @@ func GetAlignments(mapper *gominibwa.Mapper, reads []fastqreader.FastQRecord, de
 	return candidates, full, barcode
 }
 
+// A long read is split into parts that map to different places. Hits on
+// different parts of the read are complementary (split alignments), not
+// alternative placements, so only hits covering mostly the same part of the
+// read as the best hit compete with it. On simulated reads, leaving this
+// filter out roughly tripled the MAPQ log-loss, while any threshold from 0.1
+// to 0.9 gave identical results.
+const longReadMinOverlap = 0.5
+
+func competes(h, best *gominibwa.Hit) bool {
+	overlap := min(h.QueryEnd, best.QueryEnd) - max(h.QueryStart, best.QueryStart)
+	span := min(h.QueryEnd-h.QueryStart, best.QueryEnd-best.QueryStart)
+	return span > 0 && float64(overlap) >= longReadMinOverlap*float64(span)
+}
+
 // finishAlignment sets the likelihood fields, which depend on the others.
 func finishAlignment(aln *Alignment) {
-	aln.log_alignment_probability = scoreAlignment(aln, nil, 0.0) - *improper_pair_penalty // remove improper pair penalty
+	// scoreAlignment adds the improper pair penalty to unpaired placements
+	// (not for single-end reads); remove it
+	aln.log_alignment_probability = scoreAlignment(aln, nil, 0.0)
+	if !aln.single_end {
+		aln.log_alignment_probability -= *improper_pair_penalty
+	}
 	aln.updated_log_alignment_probability = aln.log_alignment_probability + 2.0*float64(len(aln.mismatchLocs))
 }
 

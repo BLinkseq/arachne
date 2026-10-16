@@ -28,11 +28,12 @@ func buildRecord(aln, primary *Alignment, debugTags *bool, contigs map[string]*s
 	ref := contigs[aln.contig]
 	var flags int32
 
-	if !aln.is_proper && aln.score-17 < 19 {
+	if aln.IsUnmapped() {
 		aln.pos = -1
 		aln.mapq = 0
 	}
-	if aln.mate_id >= 0 {
+	// a single-end (long) read is written as an unpaired record
+	if aln.mate_id >= 0 && !aln.single_end {
 		flags |= 1
 		if aln.is_proper {
 			if aln == primary {
@@ -63,10 +64,6 @@ func buildRecord(aln, primary *Alignment, debugTags *bool, contigs map[string]*s
 		} else {
 			flags |= 0x80
 		}
-		// a split (supplementary) record shares the duplicate status of its primary
-		if primary.duplicate {
-			flags |= 0x400
-		}
 
 		if primary.mate_alignment.pos == -1 {
 			rec.MateRef = nil
@@ -91,8 +88,17 @@ func buildRecord(aln, primary *Alignment, debugTags *bool, contigs map[string]*s
 		rec.MateRef = nil
 	}
 
+	// a split (supplementary) record shares the duplicate status of its primary
+	if primary.duplicate {
+		flags |= 0x400
+	}
+
 	if aln != primary {
-		flags |= 256
+		if aln.single_end {
+			flags |= 2048 // a chimeric piece of a long read is supplementary
+		} else {
+			flags |= 256
+		}
 	}
 
 	rec.Ref = ref
@@ -279,6 +285,11 @@ func flushToChannel(alignments [][]*Alignment, out chan *sam.Record, contigs map
 		read_output := false
 		for _, alignment := range alignmentArray {
 			if alignment.active {
+				// a single-end read has no mate: its empty second slot is bookkeeping only
+				if alignment.single_end && !alignment.read1 {
+					read_output = true
+					continue
+				}
 				// read_output tracks that this read_id's active alignment
 				// was found (the invariant below), independent of whether
 				// the record actually gets sent to the output channel.

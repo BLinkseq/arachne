@@ -208,6 +208,11 @@ func (c *EMConfig) logLikelihood(aln *Alignment) float64 {
 // scoreMapq is EMA's alignment-only MAPQ ceiling: 60 less the log10
 // likelihood penalty of the mismatches, indel events and clipped bases.
 func (c *EMConfig) scoreMapq(aln *Alignment) float64 {
+	// The ceiling assumes a short read: a long read has hundreds of mismatches
+	// at its normal error rate, which would pin every long read at MAPQ 0.
+	if aln.single_end {
+		return 60.0
+	}
 	return 60.0 + float64(aln.mismatches)*math.Log10(c.ErrorRate) +
 		float64(aln.indels)*math.Log10(c.IndelRate) +
 		float64(aln.soft_clipped_length)*math.Log10(c.ClipRate)
