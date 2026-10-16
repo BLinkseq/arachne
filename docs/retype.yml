@@ -32,7 +32,7 @@ links:
     icon: https://blinkseq.github.io/_astro/logo.DGThwx8R_1NHPA4.webp
     target: blank
   - text: Source
-    link: https://github.com/pdimens/arachne
+    link: https://github.com/blinkseq/arachne
     icon: mark-github
     target: blank
 footer:
