@@ -226,10 +226,10 @@ func TestGetAlignmentsWithMinibwa(t *testing.T) {
 
 func TestLookupPlatform(t *testing.T) {
 	for platform, want := range map[string]Platform{
-		"":       {Preset: "sr", ReadGroup: "ILLUMINA", EMErrorRate: 0.001},
-		"short":  {Preset: "sr", ReadGroup: "ILLUMINA", EMErrorRate: 0.001},
-		"pacbio": {Preset: "lr", ReadGroup: "PACBIO", SingleEnd: true, EMErrorRate: 0.001},
-		"ont":    {Preset: "lr", ReadGroup: "ONT", SingleEnd: true, EMErrorRate: 0.02},
+		"":       {Preset: "sr", ReadGroup: "ILLUMINA"},
+		"short":  {Preset: "sr", ReadGroup: "ILLUMINA"},
+		"pacbio": {Preset: "lr", ReadGroup: "PACBIO", SingleEnd: true},
+		"ont":    {Preset: "lr", ReadGroup: "ONT", SingleEnd: true},
 	} {
 		got, err := LookupPlatform(platform)
 		if err != nil || got != want {

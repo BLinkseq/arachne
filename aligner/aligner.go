@@ -191,14 +191,8 @@ func Arachne(args ArachneArgs) error {
 	}
 	useRFA := args.RFA != nil && *args.RFA
 	emConfig := DefaultEMConfig(*improper_pair_penalty)
-	emConfig.ErrorRate = profile.EMErrorRate
 	if args.EMErrorRate != nil {
 		emConfig.ErrorRate = *args.EMErrorRate
-	}
-	if profile.SingleEnd {
-		// long reads carry indels about as often as mismatches, unlike the
-		// short-read default of one indel event in 10 mismatches
-		emConfig.IndelRate = emConfig.ErrorRate
 	}
 	process := barcodeFuncFor(useRFA, *improper_pair_penalty, emConfig)
 	if *verbose {

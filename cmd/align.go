@@ -184,12 +184,10 @@ func arachneAlign(cmd *cobra.Command, args []string) error {
 		Comments:              &comments,
 		NoUnmapped:            &noUnmapped,
 		RFA:                   &rfa,
+		EMErrorRate:           &emErrorRate,
 		Platform:              &platform,
 	}
-	// otherwise the platform's own default applies
-	if cmd.Flags().Changed("em-error-rate") {
-		config.EMErrorRate = &emErrorRate
-	}
+
 	start := time.Now()
 	if verbose {
 		fmt.Fprintf(os.Stderr, "🕷️  Starting arachne. Version: %s\n", aligner.VERSION)

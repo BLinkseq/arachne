@@ -218,8 +218,8 @@ func TestGetAlignmentsSingleEnd(t *testing.T) {
 }
 
 // Hits on mostly the same part of the read compete; hits on different parts
-// of it (split pieces) do not. The window grows with the best score.
-func TestLongReadCompetitionAndWindow(t *testing.T) {
+// of it (split pieces) do not.
+func TestLongReadCompetition(t *testing.T) {
 	best := &gominibwa.Hit{QueryStart: 0, QueryEnd: 10000}
 	for _, c := range []struct {
 		name string
@@ -243,10 +243,5 @@ func TestLongReadCompetitionAndWindow(t *testing.T) {
 	}
 	if competes(&gominibwa.Hit{QueryStart: 5000, QueryEnd: 10000}, chimera) {
 		t.Error("a hit sharing 1/5 of its span with the best hit should not compete")
-	}
-	for _, c := range []struct{ best, want int }{{100, 17}, {170, 17}, {3000, 300}, {-5, 17}} {
-		if got := longReadWindow(17, c.best); got != c.want {
-			t.Errorf("longReadWindow(17, %d) = %d, want %d", c.best, got, c.want)
-		}
 	}
 }

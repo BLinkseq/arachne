@@ -21,17 +21,14 @@ type Platform struct {
 	ReadGroup string // SAM @RG PL value
 	// SingleEnd platforms (long reads) come as one FASTQ and are mapped unpaired.
 	SingleEnd bool
-	// EMErrorRate is the default per-base error rate of the EM likelihood. The
-	// long-read values are starting points that have not been tuned.
-	EMErrorRate float64
 }
 
 // minibwa has no PacBio- or ONT-specific presets, so both use its generic
 // long-read one for now; they are separate entries so they can diverge.
 var platforms = map[string]Platform{
-	"short":  {Preset: "sr", ReadGroup: "ILLUMINA", EMErrorRate: 0.001},
-	"pacbio": {Preset: "lr", ReadGroup: "PACBIO", SingleEnd: true, EMErrorRate: 0.001},
-	"ont":    {Preset: "lr", ReadGroup: "ONT", SingleEnd: true, EMErrorRate: 0.02},
+	"short":  {Preset: "sr", ReadGroup: "ILLUMINA"},
+	"pacbio": {Preset: "lr", ReadGroup: "PACBIO", SingleEnd: true},
+	"ont":    {Preset: "lr", ReadGroup: "ONT", SingleEnd: true},
 }
 
 // LookupPlatform returns the profile for a platform. An empty platform means
@@ -193,10 +190,6 @@ func GetAlignments(mapper *gominibwa.Mapper, reads []fastqreader.FastQRecord, de
 					bestScore, bestHit = sc, k
 				}
 			}
-			window := delta
-			if singleEnd {
-				window = longReadWindow(delta, bestScore)
-			}
 			newAlignment := func() *Alignment {
 				return &Alignment{
 					id:                          hitID,
@@ -255,7 +248,7 @@ func GetAlignments(mapper *gominibwa.Mapper, reads []fastqreader.FastQRecord, de
 				hitID++
 
 				full[readID] = append(full[readID], aln)
-				if aln.score >= bestScore-window && (!singleEnd || competes(h, &readHits[bestHit])) {
+				if aln.score >= bestScore-delta && (!singleEnd || competes(h, &readHits[bestHit])) {
 					candidates[readID] = append(candidates[readID], aln)
 				}
 			}
@@ -264,20 +257,12 @@ func GetAlignments(mapper *gominibwa.Mapper, reads []fastqreader.FastQRecord, de
 	return candidates, full, barcode
 }
 
-// Long reads are scored over thousands of bases, so a competing locus can sit
-// far below the best hit and still matter. The candidate window is the larger
-// of the short-read window and this fraction of the best score. The fraction
-// is a starting value, not tuned.
-const longReadWindowFraction = 0.1
-
-func longReadWindow(delta, bestScore int) int {
-	return max(delta, int(float64(bestScore)*longReadWindowFraction))
-}
-
 // A long read is split into parts that map to different places. Hits on
 // different parts of the read are complementary (split alignments), not
 // alternative placements, so only hits covering mostly the same part of the
-// read as the best hit compete with it.
+// read as the best hit compete with it. On simulated reads, leaving this
+// filter out roughly tripled the MAPQ log-loss, while any threshold from 0.1
+// to 0.9 gave identical results.
 const longReadMinOverlap = 0.5
 
 func competes(h, best *gominibwa.Hit) bool {
