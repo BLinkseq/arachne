@@ -1,6 +1,7 @@
 package aligner
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -121,4 +122,30 @@ func findAux(t *testing.T, rec *sam.Record, tag []byte) string {
 	}
 	t.Fatalf("aux tag %s not found in record", tag)
 	return ""
+}
+
+// VX reports whether the input barcode was valid; it must not be a constant.
+func TestBuildRecordWritesBarcodeValidityInVX(t *testing.T) {
+	addComments := false
+	AddComments = &addComments
+	debugTags := false
+	contigs := specTestContigs(t, "chr1")
+	for _, valid := range []bool{true, false} {
+		aln := newSAMSpecTestAlignment("read1", "chr1", 100, 110, 40)
+		aln.valid_barcode = valid
+		rec := buildRecord(aln, aln, &debugTags, contigs)
+		var got any
+		for _, a := range rec.AuxFields {
+			if a.Tag() == sam.Tag(auxVX) {
+				got = a.Value()
+			}
+		}
+		want := int32(0)
+		if valid {
+			want = 1
+		}
+		if got != want && fmt.Sprint(got) != fmt.Sprint(want) {
+			t.Errorf("valid barcode = %v: VX = %v, want %d", valid, got, want)
+		}
+	}
 }

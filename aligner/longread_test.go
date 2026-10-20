@@ -175,17 +175,28 @@ func TestGetAlignmentsSingleEnd(t *testing.T) {
 		for i := range q {
 			q[i] = 'I'
 		}
-		return fastqreader.FastQRecord{ReadInfo: name, Read1: seq, ReadQual1: q, Barcode: []byte("BX"), Valid: true}
+		return fastqreader.FastQRecord{ReadInfo: name, Read1: seq, ReadQual1: q, Barcode: []byte("BX"), Valid: name != "invalid"}
 	}
 	chimera := append(append([]byte(nil), ref[uniqueAt+1000:uniqueAt+3000]...), ref[farAt+1000:farAt+3000]...)
 	reads := []fastqreader.FastQRecord{
 		rec("unique", ref[uniqueAt+500:uniqueAt+3500]),
 		rec("repeat", repeat[200:3200]),
 		rec("chimera", chimera),
+		rec("invalid", ref[uniqueAt+500:uniqueAt+3500]),
 	}
 	cands, full, _ := GetAlignments(mapper, reads, 17)
-	if len(cands) != 6 {
-		t.Fatalf("got %d read slots, want 6 (two per read)", len(cands))
+	if len(cands) != 8 {
+		t.Fatalf("got %d read slots, want 8 (two per read)", len(cands))
+	}
+	// the barcode's validity travels with every alignment, placeholders included
+	for i := range reads {
+		for _, slot := range cands[2*i : 2*i+2] {
+			for _, a := range slot {
+				if want := reads[i].ReadInfo != "invalid"; a.valid_barcode != want {
+					t.Errorf("read %q: valid_barcode = %v, want %v", reads[i].ReadInfo, a.valid_barcode, want)
+				}
+			}
+		}
 	}
 	for i := range reads {
 		ph := cands[2*i+1]

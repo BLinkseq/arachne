@@ -201,6 +201,7 @@ func GetAlignments(mapper *gominibwa.Mapper, reads []fastqreader.FastQRecord, de
 					barcode:                     &fq.Barcode,
 					read1:                       read1,
 					single_end:                  singleEnd,
+					valid_barcode:               fq.Valid,
 					read_id:                     readID,
 					mate_id:                     readID ^ 1,
 					molecule_id:                 -1,
