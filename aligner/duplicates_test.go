@@ -11,7 +11,7 @@ import (
 // quality given by qual (a Phred+33 character).
 func newDupTestAlignment(read1 bool, contig string, pos int64, reversed bool, qual byte) *Alignment {
 	q := []byte(strings.Repeat(string(qual), 10))
-	return &Alignment{read1: read1, contig: contig, pos: pos, reversed: reversed, active: true, score: 60, read_qual: &q}
+	return &Alignment{read1: read1, contig: contig, pos: pos, reversed: reversed, active: true, score: 60, read_qual: &q, valid_barcode: true}
 }
 
 // newDupTestPair returns the two reads of a pair, with qual for both mates.
@@ -241,5 +241,29 @@ func TestBuildRecordSplitRecordInheritsDuplicateFlag(t *testing.T) {
 				t.Errorf("%s: duplicate flag = %v, want %v (primary.duplicate)", name, got, dup)
 			}
 		}
+	}
+}
+
+// Reads with an invalid barcode are never marked as duplicates, and do not
+// stop reads with a valid barcode from being marked.
+func TestMarkDuplicatesSkipsInvalidBarcodes(t *testing.T) {
+	a1, a2 := newDupTestPair(100, 400, 'I')
+	b1, b2 := newDupTestPair(100, 400, 'I')
+	for _, a := range []*Alignment{a1, a2, b1, b2} {
+		a.valid_barcode = false
+	}
+	markDuplicates(dupInput([2]*Alignment{a1, a2}, [2]*Alignment{b1, b2}))
+	for i, a := range []*Alignment{a1, a2, b1, b2} {
+		if a.duplicate {
+			t.Errorf("read %d has an invalid barcode but was marked duplicate", i)
+		}
+	}
+
+	// the same placement under a valid barcode is still deduplicated
+	c1, c2 := newDupTestPair(100, 400, 'I')
+	d1, d2 := newDupTestPair(100, 400, 'I')
+	markDuplicates(dupInput([2]*Alignment{c1, c2}, [2]*Alignment{d1, d2}))
+	if c1.duplicate || !d1.duplicate || !d2.duplicate {
+		t.Errorf("valid-barcode duplicates: first %v, second %v/%v; want false, true/true", c1.duplicate, d1.duplicate, d2.duplicate)
 	}
 }

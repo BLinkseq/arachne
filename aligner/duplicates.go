@@ -50,12 +50,15 @@ func activeAlignment(candidates []*Alignment) *Alignment {
 	return nil
 }
 
-// mappedForDup reports whether a read will be written as mapped. This mirrors
-// the demotion in buildRecord, so a read written as unmapped is never treated
-// as a placement. Unmapped reads all share pos=-1 and contig="", so counting
-// them as duplicate-eligible would flag unrelated reads as duplicates.
+// mappedForDup reports whether a read can take part in duplicate marking: it
+// will be written as mapped, and its barcode is valid. This mirrors the
+// demotion in buildRecord, so a read written as unmapped is never treated as a
+// placement. Unmapped reads all share pos=-1 and contig="", so counting them
+// would flag unrelated reads as duplicates. Reads with an invalid barcode are
+// never marked: the barcode is what makes two reads comparable, and an invalid
+// one is not reliable.
 func mappedForDup(a *Alignment) bool {
-	return a != nil && a.pos != -1 && !a.IsUnmapped()
+	return a != nil && a.valid_barcode && a.pos != -1 && !a.IsUnmapped()
 }
 
 // baseQualitySum is the sum of the Phred scores of the bases at or above

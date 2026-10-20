@@ -7,6 +7,7 @@ type Alignment struct {
 	comments                          *[]byte
 	read1                             bool
 	single_end                        bool // read is not part of a pair (long reads)
+	valid_barcode                     bool // the input's VX:i tag was 1
 	is_proper                         bool
 	soft_clipped                      int
 	soft_clipped_length               int

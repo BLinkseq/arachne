@@ -255,7 +255,10 @@ func buildRecord(aln, primary *Alignment, debugTags *bool, contigs map[string]*s
 
 	bx := AuxifyString(auxBX, *aln.barcode)
 	aux = append(aux, sam.Aux(bx))
-	vx := AuxifyInt(auxVX, 1)
+	vx := AuxifyInt(auxVX, 0)
+	if aln.valid_barcode {
+		vx = AuxifyInt(auxVX, 1)
+	}
 	aux = append(aux, sam.Aux(vx))
 
 	if aln.active_molecule {
