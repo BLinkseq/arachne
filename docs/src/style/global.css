@@ -8,7 +8,7 @@
 
 
 .sidebar-pane a[aria-current="page"] {
-    background: linear-gradient(40deg, #2e2e2e, #0d3f4f);
+    background: linear-gradient(40deg, #58575cff, #68767fff);
     color: #fff;
 }
 
@@ -41,7 +41,7 @@ nav ul li details summary {
 /* TOC sidebar width */
 :root {
   --sl-toc-width: 16rem;
-  --sl-color-text-accent: #0d3f4f;
+  --sl-color-text-accent: #226096;
 }
 :root[data-theme='dark'] .card {
   border: none;
@@ -90,7 +90,7 @@ nav ul li details summary {
   left: 0;
   right: 0;
   height: 3px;
-  background: linear-gradient(to right, #2e2e2e, #0d3f4f);
+  background: linear-gradient(to right, #58575cff, #68767fff);
   border-radius: 0.5rem 0.5rem 0 0;
   z-index: 1;
 }

@@ -14,7 +14,10 @@ export default defineConfig({
     starlight({
       customCss: ['./src/style/global.css'],
       title: '0.4',
-      logo: { src: '/src/assets/logo.png'},
+      logo: {
+        light: '/src/assets/logo.png',
+        dark: '/src/assets/logo_dark.png',
+      },
       favicon: '/favicon.png',
 			social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/BLinkseq/arachne' }],
       sidebar: [

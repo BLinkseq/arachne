@@ -5,41 +5,42 @@ template: splash
 sidebar:
   hidden: true
 hero:
-  tagline: Arachne is a fork of Lariat that takes the best parts of lariat and marries it with the mapping performance of EMA.
+  tagline: A linked-read sequence aligner combining the best parts of Lariat with the mapping performance of EMA.
   image:
-    file: ../../assets/icon.png
+      light: ../../assets/icon.png
+      dark: ../../assets/icon_dark.png
   actions:
     - text: Source Code
       link: https://www.github.com/blinkseq/arachne
       icon: github
       variant: secondary
     - text: Read the docs
-      link: install
+      link: install/
       icon: right-arrow
 ---
-import { Aside } from '@astrojs/starlight/components';
+import { Aside, Card, CardGrid } from '@astrojs/starlight/components';
 
-## Lariat and EMA
+<CardGrid>
+<Card title="Lariat and EMA">
 The Lariat developers made the case that linked-read data improved alignment, especially over highly repetitive regions.
 This was [shown to work quite well](https://link.springer.com/article/10.1186/s12915-020-0757-y) in _Aedes aegypti_ 
 and other works. Lariat relied on input FASTQ files with a rather peculiar variant: interleaved with 9 lines per record pair.
 Additionally, the [Chromium 10X design](https://blinkseq.github.io/linkedreads/info/#10x-genomics) did not preprocess the linked-read barcodes out of the sequence, hence the use of barcode
 "whitelists". EMA took a similar approach to Lariat, but used a different algorithm to rank read placement. Both aligners had
 their own set of data format expectations, different preprocessing steps, and were written in different languages.
+</Card>
 
-## What happened?
-10X Genomics discontinued their linked-read technology in 2019 and Lariat was abandoned shortly after. EMA showed improved
-performance as compared to Lariat, but was also abandoned after the technology was discontinued. Since then, new linked-read
+<Card title="What happened?">
+10X Genomics discontinued their linked-read technology in 2019 and Lariat stopped receiving support shortly after. EMA showed improved
+performance as compared to Lariat, but also stopped receiving support after the technology was discontinued. Since then, new linked-read
 methods emerged, namely haplotagging, stLFR, BLink-seq, and TELL-seq. These new techniques use different chemistries,
 but most importantly, all of them remove the linked-read barcode from the sequence and use conventional FASTQ formats.
-These new demultiplexed formats do not work with Lariat, and have [unaddressed bugs](https://github.com/arshajii/ema/issues/53) in EMA.
+These new demultiplexed formats do not work with Lariat, and have [outstanding issues](https://github.com/arshajii/ema/issues/53) in EMA.
 
-<Aside type="note">
-    We have tremendous respect and gratitude for the original
-    authors and sympathize with them moving on to other projects.
-</Aside>
+</Card>
+</CardGrid>
 
-## Why Arachne
+<Card title= "Why Arachne">
 We still believe linked-read technology has tons of value, so the Arachne project revisited Lariat so it can work for current technologies.
 Arachne is written in Go, a language Pavel didn't know, so he spent months learning Go to pick up where Lariat left off. This included modernizing
 the Go idioms, cleaning, optimizing, packaging it in Bioconda, etc. The initial goal was to remove the reliance on the bespoke 9-line FASTQ variant and
@@ -51,8 +52,14 @@ data format across all current and future linked-read chemistries.
 
 Version 0.3 incorporated the EM algorithm from EMA and made it the default due to somewhat improved performance.
 Now, Arachne lives as a hybrid befitting it's namesake: the body of Lariat and the mind of EMA.
+</Card>
 
-### Other improvements
+<Aside type="note">
+    We have tremendous respect and gratitude for the original
+    authors and understand their reasons for pivoting to other projects.
+</Aside>
+
+<Card title="Other Improvements" icon="star">
 - swapped `bwa mem` for `minibwa` as the primary aligner
 - better FASTQ reader
   - it technically supports multiple compression formats, such as `gz`, `bgz`, `zstd`
@@ -66,3 +73,4 @@ Now, Arachne lives as a hybrid befitting it's namesake: the body of Lariat and t
   - it doesn't do the fancy EM/RFA or dedup on them (no point), but those reads get aligned too
   - no need for data separation and branching workflows
 - documentation-- what you're reading now, this website, all of it
+</Card>
