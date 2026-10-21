@@ -1,4 +1,4 @@
-name: Upload Release Tarball and Container
+name: Upload Release Tarball
 on:
   push:
     tags:
@@ -18,8 +18,7 @@ jobs:
         with:
           fetch-depth: 1
           submodules: recursive
-      - name: Build project
-        # This builds the release tarball, stripped of unneccessary things
+      - name: Create versioned artifact
         run: |
           mkdir artifacts
           tar --exclude="test" --exclude=".pixi" --exclude="pixi.*" --exclude="scratch" --exclude="docs" --exclude="pkg" --exclude="bin" --exclude="artifacts" --exclude="archive" --exclude=".git*" -zcvf artifacts/arachne.${{ github.ref_name }}.tar.gz .
