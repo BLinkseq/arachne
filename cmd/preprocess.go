@@ -55,5 +55,5 @@ var prep = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(prep)
-	prep.Flags().IntP("threads", "t", 2, "Number of threads to use")
+	prep.Flags().IntP("threads", "t", 2, "Threads to use")
 }
