@@ -13,7 +13,7 @@ This assumes an environment has already been created with `conda create`
 conda install -c bioconda -c conda-forge bioconda::arachne # [!annotate] for `mamba`: just swap conda with mamba
 ```
 
-## With `pixi`
+## With `pixi` <Badge text="recommended" variant="tip" />
 This assumes a pixi project was already created with `pixi init` and has the `conda-forge` and `bioconda` channels added
 ```bash
 pixi add arachne
@@ -24,7 +24,7 @@ pixi add arachne
 
 1. Clone the arachne repository
     ```bash
-    # [!ref] The inclusion of `--recursive` is important to make sure the `minibwa` dependency is cloned as well. 
+    # [!ref] including `--recursive` is important to make sure the `minibwa` dependency is also cloned 
     git clone --recursive https://github.com/pdimens/arachne.git
     ```
 
@@ -43,7 +43,7 @@ pixi add arachne
 
 </Steps>
 
-## Build with pixi (alternative)
+### Build with pixi (alternative)
 For development portability, Arachne also provides a pixi environment with the build dependencies.
 Once arachne is compiled, the pixi environment is no longer needed. This approach assumes pixi is
 installed in your software environment. To use the pixi approach:

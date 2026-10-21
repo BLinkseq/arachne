@@ -4,11 +4,13 @@ import starlight from '@astrojs/starlight';
 import starlightUiTweaks from 'starlight-ui-tweaks'
 import starlightScrollToTop from 'starlight-scroll-to-top'
 import codeblocks from 'starlight-codeblocks';
+import mermaid from 'astro-mermaid';
 
 export default defineConfig({
   site: 'https://blinkseq.github.io/arachne',
   base: '/arachne',
 	integrations: [
+    mermaid(),
     starlight({
       customCss: ['./src/style/global.css'],
       title: '0.4',
@@ -17,9 +19,11 @@ export default defineConfig({
 			social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/BLinkseq/arachne' }],
       sidebar: [
         { slug: 'install' },
-        { slug: 'usage' },
         { slug: 'rfa_em' },
-        { slug: 'standardfmt' },
+        {
+          label: 'Usage',
+          items: [{ autogenerate: { directory: 'usage' } }],
+        },
       ],
       plugins: [
         codeblocks(),
@@ -30,7 +34,7 @@ export default defineConfig({
       }),
         starlightScrollToTop({
           showProgressRing: true,
-          progressRingColor: '#b288f5',
+          progressRingColor: '#222124',
           borderRadius: '50',
         }),
       ],
