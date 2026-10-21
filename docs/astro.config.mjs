@@ -20,6 +20,11 @@ export default defineConfig({
       },
       favicon: '/favicon.png',
 			social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/BLinkseq/arachne' }],
+			lastUpdated: true,
+      pagination: false,
+      editLink: {
+        baseUrl: 'https://github.com/blinkseq/arachne/edit/main/docs/',
+      },
       sidebar: [
         { slug: 'install' },
         { slug: 'rfa_em' },
