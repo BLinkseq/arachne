@@ -42,12 +42,10 @@ jobs:
           pixi run go test ./...
       - name: Create test data
         run: test/data.py
-      - name: Fails on no samtools
-        run: |
-          set +e
-          ! bin/arachne prep tmp test/test.R{1,2}.fq.gz
       - name: Index reference
         run: bin/arachne index test/hap1.fa
+      - name: Preprocess data
+        run: bin/arachne prep alpha test/test.R{1,2}.fq.gz && zcat alpha.arachne.R1.fq.gz | head
       - name: Align default
         run: bin/arachne align -t 4 -s TestSample test/hap1.fa test/test.R{1,2}.fq.gz
       - name: Align with -C comments
