@@ -1,6 +1,6 @@
 export CGO_LDFLAGS = -L$(shell pwd)/gominibwa/minibwa
 
-VERSION=0.4
+VERSION=0.4.2
 
 all: arachne gominibwa/minibwa/libminibwa.a gominibwa/minibwa/minibwa
 
@@ -9,7 +9,6 @@ arachne: gominibwa/minibwa/libminibwa.a gominibwa/minibwa/minibwa
 	mkdir -p bin/
 	go build -ldflags "-X arachne/aligner.VERSION=$(VERSION) -s -w" -o bin/$@
 	cp gominibwa/minibwa/minibwa bin/
-	chmod +x bin/arachne
 
 gominibwa/minibwa/libminibwa.a gominibwa/minibwa/minibwa &:
 	@echo "Building minibwa"

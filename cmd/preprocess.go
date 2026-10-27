@@ -5,21 +5,17 @@ import (
 	"fmt"
 	"runtime"
 
-	"arachne/preprocess"
+	"github.com/blinkseq/djinn/sort"
 
 	"github.com/spf13/cobra"
 )
 
-// preCmd represents the preprocess command
 var prep = &cobra.Command{
-	Use:     "prep [-t] PREFIX R1.fq R2.fq",
-	Short:   "Sort FASTQ files by BX barcode",
+	Use:     "prep [options] PREFIX R1.fq R2.fq",
+	Short:   "Standardize FASTQ files and sort by BX barcode",
 	Example: "prep -t 12 sample1 smp1.R1.fq.gz smp1.R2.fq.gz",
-	Long: "Sorts a pair of \"standard\"-format (\033[94;1mBX:Z\033[0m and \033[94;1mVX:i\033[0m tags) linked-read FASTQ files " +
-		"by barcode, as required by the arachne aligner. " +
-		"Use \033[94;1mdjinn\033[0m to convert haplotagging, stLFR, or TELLseq FASTQ into standard format if necessary. " +
-		"Output is PREFIX.arachne.R[1|2].fq.gz. " +
-		"\033[4;32mRequires samtools to be available on your PATH\033[0m.",
+	Long: "Convert a pair of linked-read FASTQ files into standard format and sort by barcode, as required by arachne aligner. " +
+		"Include barcode list (or literal '10x' for embedded official 10X barcode list) if input is 10X data. Output is PREFIX.arachne.R[1|2].fq.gz.",
 	DisableFlagsInUseLine: true,
 	SilenceUsage:          true,
 	Args: func(cmd *cobra.Command, args []string) error {
@@ -36,12 +32,20 @@ var prep = &cobra.Command{
 		if err := filecheck(args[2]); err != nil {
 			return err
 		}
-		if !checkIfExecInPath("samtools") {
-			return fmt.Errorf("samtools was not found on the PATH:")
+		if _, err := cmd.Flags().GetInt("threads"); err != nil {
+			return err
 		}
-		_, err := cmd.Flags().GetInt("threads")
+
+		bcMap, err := cmd.Flags().GetString("bc-list")
 		if err != nil {
 			return err
+		}
+		switch bcMap {
+		case "", "10x", "10X": // skip check
+		default:
+			if err := filecheck(bcMap); err != nil {
+				return err
+			}
 		}
 		return nil
 	},
@@ -49,11 +53,16 @@ var prep = &cobra.Command{
 		threads, _ := cmd.Flags().GetInt("threads")
 		runtime.GOMAXPROCS(safethreads(threads))
 
-		return preprocess.Preprocess(threads, args[0], args[1], args[2])
+		tmpDir, _ := cmd.Flags().GetString("tmp-prefix")
+		bcMap, _ := cmd.Flags().GetString("bc-list")
+
+		return sort.SortFqByBX(args[1:], args[0], tmpDir, threads, true, bcMap)
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(prep)
 	prep.Flags().IntP("threads", "t", 2, "Threads to use")
+	prep.Flags().StringP("tmp-prefix", "p", "", "Folder for temporary files")
+	prep.Flags().StringP("bc-list", "b", "", "Valid barcode list (10X Genomics input only)")
 }
