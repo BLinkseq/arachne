@@ -13,10 +13,11 @@ export default defineConfig({
     mermaid(),
     starlight({
       customCss: ['./src/style/global.css'],
-      title: '0.4',
+      title: 'Arachne',
       logo: {
         light: '/src/assets/logo.png',
         dark: '/src/assets/logo_dark.png',
+        replacesTitle: true,
       },
       favicon: '/favicon.png',
 			social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/BLinkseq/arachne' }],
@@ -36,8 +37,9 @@ export default defineConfig({
       plugins: [
         codeblocks(),
         starlightUiTweaks({
-        navbarLinks: [
-           { label: "BLink-seq", href: "https://blinkseq.github.io"},
+          navbarLinks: [
+           { label : 'Version: 0.4.2', href: "javascript:void(0);"},
+           { label: "BLink-seq", href: "https://blinkseq.github.io" },
         ],
       }),
         starlightScrollToTop({
