@@ -1,0 +1,18 @@
+---
+title: Index FASTA Reference
+sidebar:
+  order: 1
+---
+
+Before aligning to your reference, it must be indexed by the aligner. The `arachne index` command is
+provided for convenience. It's a small wrapper for `minibwa index`.
+
+```bash title="Usage"
+arachne index file.fasta
+```
+This will create `file.fasta.l2b` and `file.fasta.mbw`. Indexes made with `bwa index` cannot be used.
+The `--threads` option speeds up index construction.
+
+```bash title="Example"
+arachne index galapagos_tortoise.fasta
+```

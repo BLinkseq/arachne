@@ -4,15 +4,16 @@ sidebar:
   order: 2
   label: Align reads onto the reference
 ---
+import Accordion from '@/components/Accordion.astro';
 
 Once your input FASTQ files are in barcode-sorted standard format and the reference fasta is indexed,
 you are ready to align your sample onto the reference. Reads are aligned with [minibwa](https://github.com/lh3/minibwa) (short-read, paired-end mode with mate rescue),
 and the command writes uncompressed BAM to `stdout`:
-```bash usage
+```bash title="Usage"
 arachne align [options] -s <sampleID> ref.fa file.arachne.r1.fq file.arachne.r2.fq > out.bam
 ```
 
-```bash example
+```bash title="Example"
 arachne align -t 24 -s MC_001 Rclamitans.fa MC_001.arachne.R1.fq.gz MC_001.arachne.R1.fq.gz > MC_001.arachne.bam
 ```
 
@@ -38,9 +39,11 @@ columns are skipped. Empty lines, or lines that start with `#`, `track`, or `bro
 ```tsv
 <chrname> <start> <stop>
 ```
+
 Example
-```tsv
+```tsv title="centromeres.bed"
 Poccidentalis_chr1 0 180000
+Poccidentalis_chr2 0 220000
 ```
 
 ### --infer-distance
@@ -61,8 +64,7 @@ gave MAPQ values at least as well calibrated, which is why it is the default.
 The expected sequencing error rate. The default value, `0.001` is inherited from EMA and is typically a safe bet.
 This option applies to the EM method only, meaning it's ignored when using `--rfa`.
 
-<details>
-    <summary> What the number does </summary>
+<Accordion title="What this number does">
 
 It is the model's belief about how often a single base in a read is wrong. The EM uses it to decide how suspicious a mismatch is when it compares candidate placements. Each mismatch makes a placement less likely by a factor of about `1/e`:
 
@@ -95,7 +97,7 @@ When you decrease the value (e.g., 0.0001), the model expects very clean reads, 
 - It over-trusts the sequence evidence. 
   - it suits very clean data, **but it gives confident wrong answers on data with more errors than it expects**
 
-</details>
+</Accordion>
 
 ### --sample-id
 This is the field that populations the `@RG SM:` SAM field and is required, since you cannot reliably infer
