@@ -39,14 +39,17 @@ It then picks the placements that make the molecules most coherent. For each bar
 <Steps>
 
 1. Align reads with same barcode
+
     Each read pair is aligned and may have several candidate placements, for example one in each copy of a repeat. RFA keeps all of them.
     It first marks the best-scoring pair of placements for each read as the starting guess.
 
 2. Group the placements into candidate molecules
+
     Placements on the same contig that fall within `--infer-distance` (default 50 kb) of each other are grouped,
     since reads from one molecule should land near each other. A molecule that no read currently uses is dropped. 
 
 3. Improve the assignment
+
     RFA looks at one molecule at a time and asks: if the reads in this molecule that also have an alternative placement elsewhere moved there,
     would the whole picture get better? A move's score weighs:
       - how well each read aligns at its old and new place (mismatches, indels, clipping)
@@ -55,7 +58,9 @@ It then picks the placements that make the molecules most coherent. For each bar
 
     It takes the best-scoring move for that molecule and applies it only if it improves the score. It then moves on to the next molecule and cycles through them.
 
-4. Compute confidence (MAPQ). For each read it works out how likely its placement is against the alternatives. It combines two estimates, and the lower one is used:
+4. Compute confidence (MAPQ)
+
+    For each read it works out how likely its placement is against the alternatives. It combines two estimates, and the lower one is used:
     - estimate 1: the alignment scores, with penalties for sitting outside a well-supported molecule and a "none of these is right" pseudo-alternative
     - estimate 2: the probability of moving the whole molecule's reads to a competing molecule
 
@@ -70,15 +75,19 @@ For each barcode:
 <Steps>
 
 1. Align reads with same barcode
+
     Each read pair is aligned and keeps all its candidate placements
 
 2. Group placements into clouds
+
     Placements on one contig that are within `--infer-distance` of each other form a "cloud", which stands in for a molecule. This is the same idea as RFA's candidate molecules.
 
 3. Make a first guess
+
     Each read gets a starting probability for each of its candidate placements, based only on how well it aligns there. Each cloud gets a weight equal to the expected number of reads in it.
 
 4. Refine the guess 5 times.
+
     For each candidate placement, the new probability combines three things:
       - How well the read aligns there. This is EMA's scoring: each matching base, mismatch, indel and clipped base gets a fixed log probability, with the per-base mismatch rate set by `--em-error-rate`
       - How well supported the cloud is. Clouds that hold more reads are more plausible. A read's own contribution is left out, so it can't vote for its own cloud.
@@ -87,9 +96,11 @@ For each barcode:
     After each round the cloud weights are recomputed from the new probabilities, and the loop repeats. It stops early if nothing changes.
 
 5. Pick the winner
+
     Each read takes its most probable placement, and mates are linked.
 
 6. Compute confidence (MAPQ)
+
     Each read's MAPQ comes from its winning probability, capped by a ceiling that depends on its own mismatches, indels and clipping. 
     After that, RFA's molecule-level estimate (the probability that a whole molecule's reads move to a competing molecule) is computed for the chosen placement.
     Each read's final MAPQ is the lower of the two. This keeps reads that sit in a contest between two molecules from getting a high MAPQ.
