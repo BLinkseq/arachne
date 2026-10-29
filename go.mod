@@ -4,9 +4,8 @@ go 1.27.1
 
 require (
 	github.com/biogo/hts v1.4.5
-	github.com/blinkseq/djinn v0.0.0-20261022153444-2ab8db1c6da3
+	github.com/blinkseq/djinn v0.0.0-20261028194819-53d5db69f926
 	github.com/shenwei356/bio v0.16.0
-	github.com/shenwei356/xopen v0.4.1
 	github.com/spf13/cobra v1.10.2
 )
 
@@ -18,6 +17,7 @@ require (
 	github.com/klauspost/pgzip v1.3.0 // indirect
 	github.com/pierrec/lz4/v4 v4.1.33 // indirect
 	github.com/shenwei356/util v0.5.7 // indirect
+	github.com/shenwei356/xopen v0.4.1 //indirect
 	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/ulikunitz/xz v0.5.17 // indirect
 )
