@@ -10,11 +10,11 @@ Once your input FASTQ files are in barcode-sorted standard format and the refere
 you are ready to align your sample onto the reference. Reads are aligned with [minibwa](https://github.com/lh3/minibwa) (short-read, paired-end mode with mate rescue),
 and the command writes uncompressed BAM to `stdout`:
 ```bash title="Usage"
-arachne align [options] -s <sampleID> ref.fa file.arachne.r1.fq file.arachne.r2.fq > out.bam
+arachne align [options] -s <sampleID> ref.fa file.r1.fq file.r2.fq > out.bam
 ```
 
 ```bash title="Example"
-arachne align -t 24 -s MC_001 Rclamitans.fa MC_001.arachne.R1.fq.gz MC_001.arachne.R1.fq.gz > MC_001.arachne.bam
+arachne align -t 24 -s MC_001 Rclamitans.fa MC_001.R1.fq.gz MC_001.R1.fq.gz > MC_001.arachne.bam
 ```
 
 ## Options
